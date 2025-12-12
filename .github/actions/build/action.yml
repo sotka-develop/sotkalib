@@ -1,0 +1,27 @@
+name: 'build package'
+description: '... builds package?'
+author: plassstic
+runs:
+  using: 'composite'
+  steps:
+    - name: setup python
+      uses: actions/setup-python@v6.1.0
+      with:
+        python-version-file: "pyproject.toml"
+
+    - name: install uv pacman
+      uses: astral-sh/setup-uv@v7
+
+    - name: sync dependencies
+      run: make sync
+      shell: bash
+
+    - name: build pkg
+      run: make build
+      shell: bash
+
+    - name: upl pkg to artifacts
+      uses: actions/upload-artifact@v6
+      with:
+        name: build-dist
+        path: dist/

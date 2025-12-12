@@ -1,0 +1,17 @@
+python_version = "3.14.2"
+
+search-path = ["."]
+project-includes = ["."]
+project-excludes = ["**/.[!/.]*", "alembic", "alembic/**"]
+site-package-path = [".venv/lib/python3.14/site-packages"]
+python-interpreter-path = ".venv/bin/python"
+untyped-def-behavior = "check-and-infer-return-any"
+ignore-errors-in-generated-code = true
+disable-search-path-heuristics = true
+
+[sqlalchemy]
+flexible_models = ["*DBM", "Base", "DeclarativeBase"]
+
+[errors]
+bad-assignment = false
+invalid-argument = false

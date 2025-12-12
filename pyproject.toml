@@ -1,0 +1,81 @@
+[project]
+name = "sotkalib"
+version = "0.0.1a1"
+description = ""
+authors = [
+    { email = "plastic@plassstic.tech", name = "alexey" }
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.9.10,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+lines-after-imports = 2
+combine-as-imports = true
+split-on-trailing-comma = true
+order-by-type = false
+force-wrap-aliases = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+unfixable = []
+select = [
+    "E",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "ASYNC",
+    "S",
+    "B",
+    "A",
+    "C4",
+    "G",
+    "PIE",
+    "Q",
+    "SIM",
+    "PTH",
+    "TD",
+    "PL",
+    "PERF",
+    "FAST",
+    "RUF"
+]
+ignore = [
+    "PERF401",
+    "ARG",
+    "ANN",
+    "D",
+    "E203",
+    "I",
+    "E501",
+    "T201",
+    "T203",
+    "TRY003",
+    "RUF001",
+    "RUF100",
+    "C416",
+    "W1",
+    "W2",
+    "B008",
+    "S101",
+    "G004",
+    "PLC"
+]

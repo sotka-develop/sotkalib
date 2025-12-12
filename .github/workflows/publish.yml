@@ -1,0 +1,64 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: -> checkout
+        uses: actions/checkout@v6
+
+      - name: -> setup py
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: -> setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: -> sync
+        run: make sync
+
+      - name: -> ruff
+        run: |
+          uv run ruff check --fix-only .
+          uv run ruff format .
+
+      - name: -> pyrefly
+        run: uv run pyrefly check
+
+      - name: -> uv version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          uv version "$VERSION" --frozen
+
+      - name: -> commit bump
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'ci: bump version to ${{ github.ref_name }}'
+          commit_author: '${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>'
+
+      - name: build pkg
+        uses: ./.github/actions/build
+
+      - name: dl build
+        uses: actions/download-artifact@v5
+        with:
+          name: build-dist
+          path: dist/
+
+      - name: -> publish
+        run: make publish
