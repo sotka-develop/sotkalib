@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: -> checkout
         uses: actions/checkout@v6
+        with:
+          ref: main
 
       - name: -> setup py
         uses: actions/setup-python@v6
