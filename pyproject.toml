@@ -86,3 +86,19 @@ ignore = [
     "G004",
     "PLC"
 ]
+
+[tool.pyrefly]
+python_version = "3.14.2"
+
+search-path = ["."]
+project-includes = ["./src/sotkalib"]
+project-excludes = ["**/.[!/.]*"]
+site-package-path = [".venv/lib/python3.14/site-packages"]
+python-interpreter-path = ".venv/bin/python"
+untyped-def-behavior = "check-and-infer-return-any"
+ignore-errors-in-generated-code = true
+disable-search-path-heuristics = true
+
+[tool.pyrefly.errors]
+bad-assignment = false
+invalid-argument = false
