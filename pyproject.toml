@@ -13,6 +13,13 @@ dependencies = []
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"
 
+[dependency-groups]
+dev = [
+    "mypy>=1.19.0",
+    "pyrefly>=0.45.2",
+    "ruff>=0.14.9",
+]
+
 [tool.ruff]
 line-length = 120
 indent-width = 4
