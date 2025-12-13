@@ -1,2 +1,5 @@
-def hello_world():
-    return "Hello World!"
+"""
+
+Library with utils, made for s0tka.ru
+
+"""

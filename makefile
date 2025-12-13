@@ -9,3 +9,7 @@ publish:
 
 build:
 	uv build -o dist/ --no-sources
+
+lint:
+	uv run ruff check --fix-only .
+	uv run ruff format .
