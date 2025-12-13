@@ -1,24 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from logging import (
-    Logger as StdLogger,
-)
-from os import getenv, PathLike
 import re
+from _warnings import warn
+from dataclasses import dataclass
+from os import PathLike, getenv
 from types import NoneType, UnionType
-from typing import Any, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 from dotenv import load_dotenv
-from loguru._logger import Logger
 
 from sotkalib.logging import get_logger
 
 from .field import SettingsField
 
-
 type _allowedTypes = int | float | complex | str | bool | None
-type _loggers = StdLogger | Logger
+
+
+if TYPE_CHECKING:
+    from logging import (
+        Logger as StdLogger,
+    )
+
+    from loguru import Logger as LoguruLogger
+
+    type _loggers = StdLogger | LoguruLogger
 
 
 @dataclass
@@ -91,57 +96,52 @@ class AppSettings:
 
         load_dotenv(dotenv_path=dotenv_path)
 
-        _log: _loggers = get_logger("utilities.appsettings") if logger is None else logger
-        self.__log: _loggers = _log
+        _log = get_logger("utilities.appsettings") if logger is None else logger
+        self.__log = _log
 
         self.__strict = strict
 
-        cls_annotations: dict[str, Any] = self.__class__.__annotations__
-        cls_dict: dict[str, Any] = self.__class__.__dict__
+        cls_annotations = self.__class__.__annotations__
+        cls_dict = self.__class__.__dict__
 
-        setting_fields: dict[str, SettingsField] = {
+        settings_fields: dict[str, SettingsField] = {
             attr: val for attr, val in cls_dict.items() if not attr.startswith("__")
         }
 
-        deferred: list[tuple[str, str]] = []
+        self.__deferred = []
 
-        for attr, settings_field in setting_fields.items():
+        for attr, settings_field in settings_fields.items():
             if explicit_format and not re.match(r"[A-Z_]", attr):
                 raise AttributeError("AppSettings attributes should contain only capital letters and underscores")
 
-            annotated: type = cls_annotations.get(attr, NoneType)
-
-            self.__mutability_chk(annotated, strict)
-
-            string_value: str | None = getenv(attr, None)
+            annotated = cls_annotations.get(attr, NoneType)
+            string_value = getenv(attr, None)
 
             if string_value is None:
-                self.__validate_empty_string_value(attr, deferred, settings_field)
+                self.__validate_empty_string_value(attr, settings_field)
                 continue
 
-            typed_value: _allowedTypes = evaluate_var(annotated, string_value)
+            typed_value = evaluate_var(annotated, string_value)
 
-            self.__set_if_immutable(attr, typed_value)
-            _log.info(f"successfully evaluated {attr}={typed_value!r}")
+            setattr(self, attr, self.__validate(typed_value, strict=self.__strict))
+            _log.info(f"successfully evaluated {attr}={getattr(self, attr)!r}")
 
-        self.__init_factory_defined(deferred=deferred)
+        self.__post_init__()
 
-    def __validate_empty_string_value(
-        self, attr: str, deferred: list[tuple[str, str]], settings_field: SettingsField
-    ) -> None:
+    def __validate_empty_string_value(self, attr: str, settings_field: SettingsField) -> None:
         if settings_field.default is not None:
-            self.__set_if_immutable(attr, settings_field.default)
-            self.__log.info(f"Successfully evaluated {attr}={settings_field.default} by default")
+            setattr(self, attr, self.__validate(settings_field.default, strict=self.__strict))
+            self.__log.info(f"successfully evaluated {attr}={settings_field.default} by default")
             return
 
         if settings_field.factory is not None and isinstance(settings_field.factory, str):
-            deferred.append((attr, settings_field.factory))
-            self.__log.info(f"Postponed {attr} initialization as factory is a property")
+            self.__deferred.append((attr, settings_field.factory))
+            self.__log.info(f"defer {attr} init as factory is a str; => property")
             return
 
         if hasattr(settings_field.factory, "__call__"):
-            self.__set_if_immutable(attr, settings_field.factory())
-            self.__log.info(f"Successfully evaluated {attr} from factory")
+            setattr(self, attr, self.__validate(settings_field.factory(), strict=self.__strict))
+            self.__log.info(f"successfully evaluated {attr} from factory")
             return
 
         if settings_field.nullable:
@@ -149,33 +149,29 @@ class AppSettings:
             self.__log.info(f"Nulled {attr}")
             return
 
-        raise ValueError(f"Required field {attr} was not found in .env")
+        raise ValueError(f"reqd field {attr} was not found in .env")
 
-    def __set_if_immutable[T: _allowedTypes](self, key: str, value: T) -> None:
-        value = self.__mutability_chk(type(value), strict=self.__strict)
-        setattr(self, key, value)
-
-    def __init_factory_defined(self, deferred: list[tuple[str, str]]):
-        for attr, factory in deferred:
+    def __post_init__(self):
+        for attr, factory in self.__deferred:
             if factory not in self.__class__.__dict__:
-                raise AttributeError(f"Property {factory} was not found in {self.__class__.__name__}")
+                raise AttributeError(f"property {factory} was not found in {self.__class__.__name__}")
             if not isinstance(getattr(self.__class__, factory), property):
-                raise TypeError(f"Method {factory} is not a property")
-            self.__log.info(f"Successfully evaluated {attr} from property {factory}")
-            self.__set_if_immutable(attr, getattr(self, factory))
+                raise TypeError(f"method {factory} is not a property")
+            self.__log.info(f"successfully evaluated {attr} from property {factory}")
+            setattr(self, attr, self.__validate(getattr(self, factory), strict=self.__strict))
 
     @staticmethod
-    def __mutability_chk[T: Any](annotated: T, strict: bool) -> T | None:
-        if isinstance(annotated, get_args(_allowedTypes.__value__)):
-            annotated = annotated.__value__
-        # ??? TODO
-        if annotated not in get_args(_allowedTypes.__value__) or (
-            isinstance(annotated, UnionType)
-            and not all(isinstance(annotated, _allowedTypes) for _type in get_args(annotated))
-        ):
+    def __validate[T: Any](val: T, strict: bool) -> T | None:
+        typeval = type(val)
+        allowed = get_args(_allowedTypes.__value__)
+
+        if typeval not in allowed or (isinstance(val, UnionType) and not all(t in allowed for t in get_args(val))):
             if strict:
-                raise TypeError(f"{annotated} is not allowed for annotations as it is mutable")
+                raise TypeError(
+                    f"{val} ({typeval}) is not allowed for annotations as it, or one of its' members is mutable"
+                )
             else:
+                warn(f"{val} ({typeval}) is mutable, set value to None")
                 return None
 
-        return annotated
+        return val

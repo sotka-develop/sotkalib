@@ -26,25 +26,15 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-indent-width = 4
 target-version = "py314"
-
-[tool.ruff.lint.isort]
-force-sort-within-sections = true
-lines-after-imports = 2
-combine-as-imports = true
-split-on-trailing-comma = true
-order-by-type = false
-force-wrap-aliases = true
+src = ["src"]
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
 docstring-code-format = true
 line-ending = "lf"
 
 [tool.ruff.lint]
+# Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 select = [
@@ -53,6 +43,7 @@ select = [
     "I",
     "N",
     "UP",
+    "ANN",
     "ASYNC",
     "S",
     "B",
@@ -62,34 +53,37 @@ select = [
     "PIE",
     "Q",
     "SIM",
+    "ARG",
     "PTH",
     "TD",
     "PL",
-    "PERF",
-    "FAST",
-    "RUF"
+    "PERF"
 ]
-ignore = [
-    "PERF401",
-    "ARG",
-    "ANN",
-    "D",
-    "E203",
-    "I",
-    "E501",
-    "T201",
-    "T203",
-    "TRY003",
-    "RUF001",
-    "RUF100",
-    "C416",
-    "W1",
-    "W2",
-    "B008",
-    "S101",
-    "G004",
-    "PLC"
+ignore = ["PERF401"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "common",
+    "db",
+    "libs",
+    "handlers",
+    "backend_common",
+    "actions"
 ]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "pydantic.root_validator",
+    "pydantic.validator",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F403"]
+"**/{tests}/*" = ["S101", "PLR2004"]
+"**/{tests}/*/test_*" = ["ANN201"]
+
+[tool.ruff.lint.pylint]
+max-args = 9
 
 [tool.pyrefly]
 python_version = "3.14.0"

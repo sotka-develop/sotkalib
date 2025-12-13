@@ -1,11 +1,14 @@
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
-import loguru
 from loguru import logger
+
+if TYPE_CHECKING:
+    from loguru import Logger
 
 
 @lru_cache
-def get_logger(logger_name: str | None = None) -> loguru.Logger:
+def get_logger(logger_name: str | None = None) -> Logger:
     """
 
     Return a cached loguru Logger optionally bound with a humanized name.
