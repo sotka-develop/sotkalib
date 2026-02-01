@@ -1,9 +1,14 @@
 name: 'build package'
 description: '... builds package?'
-author: plassstic
+author: pyrorhyhtm
 runs:
   using: 'composite'
   steps:
+    - name: -> setup justfile
+      uses: extractions/setup-just@v3
+      with:
+        just-version: '*'
+
     - name: setup python
       uses: actions/setup-python@v6.1.0
       with:
@@ -13,11 +18,11 @@ runs:
       uses: astral-sh/setup-uv@v7
 
     - name: sync dependencies
-      run: make sync
+      run: just sync
       shell: bash
 
     - name: build pkg
-      run: make build
+      run: just build
       shell: bash
 
     - name: upl pkg to artifacts

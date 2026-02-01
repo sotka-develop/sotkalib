@@ -30,28 +30,20 @@ jobs:
         with:
           enable-cache: true
 
+      - name: -> setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: '*'
+
       - name: -> sync
-        run: make sync
+        run: just sync
 
       - name: -> ruff
         run: |
           uv run ruff check --fix-only .
-          uv run ruff format .
 
       - name: -> pyrefly
         run: uv run pyrefly check
-
-      - name: -> uv version
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          uv version "$VERSION" --frozen
-
-      - name: -> commit bump
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: 'ci: bump version to ${{ github.ref_name }}'
-          commit_author: '${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>'
 
       - name: build pkg
         uses: ./.github/actions/build
@@ -63,4 +55,4 @@ jobs:
           path: dist/
 
       - name: -> publish
-        run: make publish
+        run: just publish
