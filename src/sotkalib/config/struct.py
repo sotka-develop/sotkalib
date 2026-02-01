@@ -1,20 +1,17 @@
 from __future__ import annotations
 
 import re
-from _warnings import warn
 from dataclasses import dataclass
 from os import PathLike, getenv
 from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, get_args
+from warnings import warn
 
 from dotenv import load_dotenv
 
-from sotkalib.logging import get_logger
+from sotkalib.log import get_logger
 
-from .field import SettingsField
-
-type _allowedTypes = int | float | complex | str | bool | None
-
+from .field import AllowedTypes, SettingsField
 
 if TYPE_CHECKING:
     from logging import (
@@ -48,7 +45,7 @@ class AppSettings:
         >>> class MySettings(AppSettings):
         ...     BOT_TOKEN: str = SettingsField(nullable=False)
         ...     POSTGRES_USER: str = SettingsField(default="pg_user")
-        ...     POSTGRES_PASSWORD: str = SettingsField(nullable=False, factory=secrets.token_urlsafe(8))
+        ...     POSTGRES_PASSWORD: str = SettingsField(nullable=False, factory=lambda: secrets.token_urlsafe(8))
         ...     SECRET_ALIAS: str = SettingsField(factory="secret")
         ...
         ...     @property
@@ -74,7 +71,7 @@ class AppSettings:
         **Parameters:**
 
         - `dotenv_path`: Optional path to a .env file. If None, python-dotenv searches recursively.
-        - `logger`: Optional logging or loguru logger.
+        - `logger`: Optional log or loguru logger.
         - `explicit_format`: If True, attribute names must be uppercase with underscores.
         - `strict`: If True, any mutable types will raise an exception rather than being set to
         None.
@@ -87,7 +84,14 @@ class AppSettings:
 
         """
 
+        def _unwrap_type(tp: type) -> type:
+            if isinstance(tp, UnionType):
+                args = [a for a in get_args(tp) if a is not NoneType]
+                return args[0] if args else NoneType
+            return tp
+
         def evaluate_var(_type: type, _var: str) -> Any:
+            _type = _unwrap_type(_type)
             if _type is NoneType:
                 return None
             if _type is bool:
@@ -105,13 +109,13 @@ class AppSettings:
         cls_dict = self.__class__.__dict__
 
         settings_fields: dict[str, SettingsField] = {
-            attr: val for attr, val in cls_dict.items() if not attr.startswith("__")
+            attr: val for attr, val in cls_dict.items() if isinstance(val, SettingsField)
         }
 
         self.__deferred = []
 
         for attr, settings_field in settings_fields.items():
-            if explicit_format and not re.match(r"[A-Z_]", attr):
+            if explicit_format and not re.fullmatch(r"[A-Z][A-Z0-9_]*", attr):
                 raise AttributeError("AppSettings attributes should contain only capital letters and underscores")
 
             annotated = cls_annotations.get(attr, NoneType)
@@ -124,54 +128,52 @@ class AppSettings:
             typed_value = evaluate_var(annotated, string_value)
 
             setattr(self, attr, self.__validate(typed_value, strict=self.__strict))
-            _log.info(f"successfully evaluated {attr}={getattr(self, attr)!r}")
+            _log.debug(f"evaluated {attr} from environment")
 
         self.__post_init__()
 
     def __validate_empty_string_value(self, attr: str, settings_field: SettingsField) -> None:
         if settings_field.default is not None:
             setattr(self, attr, self.__validate(settings_field.default, strict=self.__strict))
-            self.__log.info(f"successfully evaluated {attr}={settings_field.default} by default")
+            self.__log.debug(f"evaluated {attr} from default")
             return
 
         if settings_field.factory is not None and isinstance(settings_field.factory, str):
             self.__deferred.append((attr, settings_field.factory))
-            self.__log.info(f"defer {attr} init as factory is a str; => property")
+            self.__log.debug(f"defer {attr} init as factory is a str; => property")
             return
 
-        if hasattr(settings_field.factory, "__call__"):
+        if callable(settings_field.factory):
             setattr(self, attr, self.__validate(settings_field.factory(), strict=self.__strict))
-            self.__log.info(f"successfully evaluated {attr} from factory")
+            self.__log.debug(f"evaluated {attr} from factory")
             return
 
         if settings_field.nullable:
-            setattr(self, attr, None)  # None is immutable by invariant
-            self.__log.info(f"Nulled {attr}")
+            setattr(self, attr, None)
+            self.__log.debug(f"evaluated {attr} as None (nullable)")
             return
 
         raise ValueError(f"reqd field {attr} was not found in .env")
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for attr, factory in self.__deferred:
             if factory not in self.__class__.__dict__:
                 raise AttributeError(f"property {factory} was not found in {self.__class__.__name__}")
             if not isinstance(getattr(self.__class__, factory), property):
                 raise TypeError(f"method {factory} is not a property")
-            self.__log.info(f"successfully evaluated {attr} from property {factory}")
+            self.__log.debug(f"evaluated {attr} from property {factory}")
             setattr(self, attr, self.__validate(getattr(self, factory), strict=self.__strict))
 
     @staticmethod
     def __validate[T: Any](val: T, strict: bool) -> T | None:
         typeval = type(val)
-        allowed = get_args(_allowedTypes.__value__)
+        allowed = get_args(AllowedTypes.__value__)
 
-        if typeval not in allowed or (isinstance(val, UnionType) and not all(t in allowed for t in get_args(val))):
+        if typeval not in allowed:
             if strict:
-                raise TypeError(
-                    f"{val} ({typeval}) is not allowed for annotations as it, or one of its' members is mutable"
-                )
+                raise TypeError(f"{typeval} is not an allowed immutable type")
             else:
-                warn(f"{val} ({typeval}) is mutable, set value to None")
+                warn(f"{typeval} is mutable, setting value to None", stacklevel=2)
                 return None
 
         return val

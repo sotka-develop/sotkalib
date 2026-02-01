@@ -3,13 +3,15 @@ name = "sotkalib"
 version = "0.0.1a1"
 description = ""
 authors = [
-    { email = "plastic@plassstic.tech", name = "alexey" }
+    { email = "me@pyrorhythm.dev", name = "alexey" }
 ]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiohttp>=3.13.3",
     "dotenv>=0.9.9",
     "loguru>=0.7.3",
+    "pydantic>=2.12.5",
 ]
 
 [build-system]
@@ -43,7 +45,6 @@ select = [
     "I",
     "N",
     "UP",
-    "ANN",
     "ASYNC",
     "S",
     "B",

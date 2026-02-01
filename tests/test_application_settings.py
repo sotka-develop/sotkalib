@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sotkalib.configuration.field import SettingsField
-from sotkalib.configuration.struct import AppSettings
+from sotkalib.config.field import SettingsField
+from sotkalib.config.struct import AppSettings
 
 
 class TestAppSettings:
@@ -14,7 +14,7 @@ class TestAppSettings:
         """Test basic initialization with no environment variables"""
 
         class TestSettings(AppSettings):
-            TEST_VAR: str = SettingsField(nullable=True)
+            TEST_VAR = SettingsField[str](nullable=True)
 
         settings = TestSettings()
         assert hasattr(settings, "TEST_VAR")
@@ -924,7 +924,7 @@ class TestAppSettings:
         """Test multiple different settings classes in same process"""
 
         class Settings1(AppSettings):
-            VAR1: str = SettingsField(default="settings1")
+            VAR1: SettingsField[str] = SettingsField(default="settings1")
 
         class Settings2(AppSettings):
             VAR2: str = SettingsField(default="settings2")

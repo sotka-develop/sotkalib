@@ -1,19 +1,18 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-
-type _allowedTypes = int | float | complex | str | bool | None
+type AllowedTypes = int | float | complex | str | bool | None
 
 
 @dataclass(init=True, slots=True, frozen=True)
-class SettingsField[T: _allowedTypes]:
+class SettingsField[T: AllowedTypes]:
     """
 
     Typed field declaration for AppSettings.
 
     **Parameters:**
 
-    - `T`: Python type of the value (int | float | complex | str | bool | None).
+    - `T`: Python type of the value (see AllowedTypes).
 
     **Attributes:**
 
@@ -23,6 +22,6 @@ class SettingsField[T: _allowedTypes]:
 
     """
 
-    default: T = None
-    factory: Callable[[], T] | str = None
-    nullable: bool = True
+    default: T | None = None
+    factory: Callable[[], T] | str | None = None
+    nullable: bool = False
