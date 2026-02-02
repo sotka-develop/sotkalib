@@ -7,7 +7,6 @@ from pydantic import BaseModel
 
 class ErrorSchema(BaseModel):
 	code: str | None = None
-	phrase: str | None = None
 	desc: str | None = None
 	ctx: Mapping[str, Any] | str | list[Any] | None = None
 
@@ -41,14 +40,12 @@ class APIError(BaseHTTPError):
 			status = http.HTTPStatus(status)
 
 		self.status = status
-		self.phrase = status.phrase
 		self.code = code
 		self.desc = desc
 		self.ctx = ctx
 
 		self.schema = ErrorSchema(
 			code=self.code,
-			phrase=self.phrase,
 			desc=self.desc,
 			ctx=self.ctx,
 		)

@@ -7,12 +7,11 @@ class TestErrorSchema:
 	def test_defaults(self):
 		schema = ErrorSchema()
 		assert schema.code is None
-		assert schema.phrase is None
 		assert schema.desc is None
 		assert schema.ctx is None
 
 	def test_with_values(self):
-		schema = ErrorSchema(code="ERR_01", phrase="Bad Request", desc="invalid input", ctx={"field": "name"})
+		schema = ErrorSchema(code="ERR_01", desc="invalid input", ctx={"field": "name"})
 		assert schema.code == "ERR_01"
 		assert schema.ctx == {"field": "name"}
 
@@ -42,8 +41,6 @@ class TestAPIError:
 	def test_default(self):
 		err = APIError()
 		assert err.status == http.HTTPStatus.BAD_REQUEST
-		assert err.phrase == "Bad Request"
-		assert err.schema.phrase == "Bad Request"
 
 	def test_with_int_status(self):
 		err = APIError(status=404)

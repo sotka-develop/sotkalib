@@ -7,10 +7,10 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from sotkalib.http.client_session import (
-	ClientSession,
+	HTTPSession,
 	ClientSettings,
 	ExceptionSettings,
-	RunOutOfAttemptsError,
+	RanOutOfAttemptsError,
 	StatusRetryError,
 	StatusSettings,
 	_make_ssl_context,
@@ -98,7 +98,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_get(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/ok")
 			data = await resp.json()
 			assert data == {"status": "ok"}
@@ -106,7 +106,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_post(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.post(f"{base_url}/ok")
 			data = await resp.json()
 			assert data == {"status": "ok"}
@@ -114,7 +114,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_put(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.put(f"{base_url}/ok")
 			data = await resp.json()
 			assert data == {"status": "ok"}
@@ -122,7 +122,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_delete(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.delete(f"{base_url}/ok")
 			data = await resp.json()
 			assert data == {"status": "ok"}
@@ -130,7 +130,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_patch(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.patch(f"{base_url}/ok")
 			data = await resp.json()
 			assert data == {"status": "ok"}
@@ -138,7 +138,7 @@ class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_not_found_returns_none(self, base_url):
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/not-found")
 			assert resp is None
 
@@ -149,8 +149,8 @@ class TestClientSession:
 			base=0.01,
 			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)},
 		)
-		async with ClientSession(config) as session:
-			with pytest.raises(RunOutOfAttemptsError):
+		async with HTTPSession(config) as session:
+			with pytest.raises(RanOutOfAttemptsError):
 				await session.get(f"{base_url}/rate-limit")
 
 	@pytest.mark.asyncio
@@ -159,7 +159,7 @@ class TestClientSession:
 			useragent_factory=lambda: "TestBot/1.0",
 			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)},
 		)
-		async with ClientSession(config) as session:
+		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/headers")
 			data = await resp.json()
 			assert data["User-Agent"] == "TestBot/1.0"
@@ -178,7 +178,7 @@ class TestClientSession:
 			return wrapper
 
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		session = ClientSession(config).use(logging_mw)
+		session = HTTPSession(config).use(logging_mw)
 		async with session as s:
 			await s.get(f"{base_url}/ok")
 

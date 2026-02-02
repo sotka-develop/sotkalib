@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from redis.asyncio import Redis
 
-from sotkalib.redis.lock import ContextLockError, redis_context_lock, wait_till_lock_free
+from sotkalib.redis.lock import ContextLockError, redis_context_lock, __wait_till_lock_free
 
 
 @pytest.mark.asyncio
@@ -79,7 +79,7 @@ async def test_context_lock_released_on_exception(redis_client: Redis):
 @pytest.mark.asyncio
 async def test_wait_till_lock_free_immediate(redis_client: Redis):
 	key = "test:lock:free"
-	await wait_till_lock_free(redis_client, key, lock_timeout=1.0)
+	await __wait_till_lock_free(redis_client, key, lock_timeout=1.0)
 
 
 @pytest.mark.asyncio
@@ -87,7 +87,7 @@ async def test_wait_till_lock_free_waits(redis_client: Redis):
 	key = "test:lock:wait_free"
 	await redis_client.set(key, "acquired", ex=1)
 
-	await wait_till_lock_free(redis_client, key, lock_timeout=3.0)
+	await __wait_till_lock_free(redis_client, key, lock_timeout=3.0)
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_wait_till_lock_free_timeout(redis_client: Redis):
 	await redis_client.set(key, "acquired", ex=30)
 
 	with pytest.raises(ContextLockError):
-		await wait_till_lock_free(redis_client, key, lock_timeout=0.3)
+		await __wait_till_lock_free(redis_client, key, lock_timeout=0.3)
 
 
 @pytest.mark.asyncio

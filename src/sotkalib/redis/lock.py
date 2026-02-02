@@ -1,12 +1,10 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from time import time
 from typing import Any
 
 from redis.asyncio import Redis
-
-from sotkalib.redis.client import RedisPool
 
 
 class ContextLockError(Exception):
@@ -15,27 +13,18 @@ class ContextLockError(Exception):
 		self.can_retry = can_retry
 
 
-async def _try_acquire(rc: Redis, key_to_lock: str, acquire_timeout: int) -> bool:
+async def __try_acquire(rc: Redis, key_to_lock: str, acquire_timeout: int) -> bool:
 	"""Atomically acquire a lock using SET NX (set-if-not-exists)."""
 	return bool(await rc.set(key_to_lock, "acquired", nx=True, ex=acquire_timeout))
 
 
-async def wait_till_lock_free(
+async def __wait_till_lock_free(
 	client: Redis,
 	key_to_lock: str,
 	lock_timeout: float = 10.0,
 	base_delay: float = 0.1,
 	max_delay: float = 5.0,
 ) -> None:
-	"""
-	Wait until lock is free with exponential backoff.
-
-	:param key_to_lock: Redis key for the lock
-	:param lock_timeout: Maximum time to wait in seconds
-	:param base_delay: Initial delay between checks in seconds
-	:param max_delay: Maximum delay between checks in seconds
-	:raises ContextLockError: If timeout is reached
-	"""
 	start = time()
 	attempt = 0
 	while await client.get(key_to_lock) is not None:
@@ -51,7 +40,7 @@ async def wait_till_lock_free(
 
 @asynccontextmanager
 async def redis_context_lock(
-	client: Redis | RedisPool,
+	client: AbstractAsyncContextManager[Redis],
 	key_to_lock: str,
 	can_retry_if_lock_catched: bool = True,
 	wait_for_lock: bool = False,
@@ -62,21 +51,25 @@ async def redis_context_lock(
 	"""
 	Acquire a Redis lock atomically using SET NX.
 
+	:param client: async context mng for redis
 	:param key_to_lock: Redis key for the lock
 	:param can_retry_if_lock_catched: Whether task should retry if lock is taken (only used if wait_for_lock=False)
 	:param wait_for_lock: If True, wait for lock to be free instead of immediately failing
 	:param wait_timeout: Maximum time to wait for lock in seconds (only used if wait_for_lock=True)
+	:param acquire_timeout: Timeout for acquiring lock
+	:param args_to_lock_exception: Args to pass to ContextLockError
+
 	"""
 	if args_to_lock_exception is None:
 		args_to_lock_exception = []
 
 	if wait_for_lock:
 		async with client as rc:
-			await wait_till_lock_free(key_to_lock=key_to_lock, client=rc, lock_timeout=wait_timeout)
+			await __wait_till_lock_free(key_to_lock=key_to_lock, client=rc, lock_timeout=wait_timeout)
 
 	try:
 		async with client as rc:
-			acquired = await _try_acquire(rc, key_to_lock, acquire_timeout)
+			acquired = await __try_acquire(rc, key_to_lock, acquire_timeout)
 			if not acquired:
 				raise ContextLockError(
 					f"{key_to_lock} lock already acquired",

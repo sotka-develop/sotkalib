@@ -1,5 +1,5 @@
 from .client_session import (
-	ClientSession,
+	HTTPSession,
 	ClientSettings,
 	ExceptionSettings,
 	Handler,
@@ -8,7 +8,7 @@ from .client_session import (
 )
 
 __all__ = (
-	"ClientSession",
+	"HTTPSession",
 	"ExceptionSettings",
 	"StatusSettings",
 	"ClientSettings",

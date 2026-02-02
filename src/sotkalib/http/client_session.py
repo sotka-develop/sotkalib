@@ -1,7 +1,7 @@
 import asyncio
-import importlib
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from functools import reduce
 from http import HTTPStatus
 from typing import Any, Literal, Protocol, Self
 
@@ -11,18 +11,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sotkalib.log import get_logger
 
+MAXIMUM_BACKOFF: float = 120
+
 try:
-	certifi = importlib.import_module("certifi")
+	import certifi
 except ImportError:
 	certifi = None
 
-
-MAXIMUM_BACKOFF: float = 120
-
-
-class RunOutOfAttemptsError(Exception):
+class RanOutOfAttemptsError(Exception):
 	pass
 
+class CriticalStatusError(Exception):
+	pass
 
 class StatusRetryError(Exception):
 	status: int
@@ -33,10 +33,11 @@ class StatusRetryError(Exception):
 		self.status = status
 		self.context = context
 
+type ExcArgFunc = Callable[..., tuple[Sequence[Any], Mapping[str, Any] | None]]
+type StatArgFunc = Callable[..., Any]
 
-class CriticalStatusError(Exception):
-	pass
-
+async def default_stat_arg_func(resp: aiohttp.ClientResponse) -> tuple[Sequence[Any], None]:
+	return (f"[{resp.status}]; {await resp.text()=}",), None
 
 class StatusSettings(BaseModel):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -45,8 +46,11 @@ class StatusSettings(BaseModel):
 	to_retry: set[HTTPStatus] = Field(default={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.FORBIDDEN})
 	exc_to_raise: type[Exception] = Field(default=CriticalStatusError)
 	not_found_as_none: bool = Field(default=True)
+	args_for_exc_func: StatArgFunc = Field(default=default_stat_arg_func)
 	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
+def default_exc_arg_func(exc: Exception, attempt: int, url: str, method: str, **kw) -> tuple[Sequence[Any], None]:
+	return (f"exception {type(exc)}: ({exc=}) {attempt=}; {url=} {method=} {kw=}",), None
 
 class ExceptionSettings(BaseModel):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -70,7 +74,7 @@ class ExceptionSettings(BaseModel):
 	)
 
 	exc_to_raise: type[Exception] | None = Field(default=None)
-
+	args_for_exc_func: ExcArgFunc = Field(default=default_exc_arg_func)
 	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
 
@@ -89,11 +93,11 @@ class ClientSettings(BaseModel):
 	use_cookies_from_response: bool = Field(default=False)
 
 
-class Handler[T](Protocol):
-	async def __call__(self, *args: Any, **kwargs: Any) -> T: ...
+class Handler[**P, T](Protocol):
+	async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T: ...
 
 
-type Middleware[T, R] = Callable[[Handler[T]], Handler[R]]
+type Middleware[**P, T, R] = Callable[[Handler[P, T]], Handler[P, R]]
 
 
 def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
@@ -119,22 +123,23 @@ def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
 	return ctx
 
 
-class ClientSession[R = aiohttp.ClientResponse | None]:
+
+class HTTPSession[R = aiohttp.ClientResponse | None]:
 	config: ClientSettings
 	_session: aiohttp.ClientSession
-	_middlewares: list[Callable[[Handler[Any]], Handler[Any]]]
+	_middlewares: list[Middleware]
 
 	def __init__(
 		self,
 		config: ClientSettings | None = None,
-		_middlewares: list[Callable[[Handler[Any]], Handler[Any]]] | None = None,
+		_middlewares: list[Middleware] | None = None,
 	) -> None:
 		self.config = config if config is not None else ClientSettings()
 		self._session = None
 		self._middlewares = _middlewares or []
 
-	def use[NewR](self, mw: Middleware[R, NewR]) -> ClientSession[NewR]:
-		new_session: ClientSession[NewR] = ClientSession(
+	def use[**P, NewR](self, mw: Middleware[P, R, NewR]) -> HTTPSession[NewR]:
+		new_session: HTTPSession[NewR] = HTTPSession(
 			config=self.config,
 			_middlewares=[*self._middlewares, mw],
 		)
@@ -159,75 +164,81 @@ class ClientSession[R = aiohttp.ClientResponse | None]:
 
 		return self
 
-	async def __aexit__(self, exc_type, exc_val, exc_tb):
+	async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
 		if self._session:
 			await self._session.close()
 
 	async def _handle_statuses(self, response: aiohttp.ClientResponse) -> aiohttp.ClientResponse | None:
 		sc = response.status
+		exc, argfunc = self.config.status_settings.exc_to_raise, self.config.status_settings.args_for_exc_func
 		if self.config.use_cookies_from_response:
 			self._session.cookie_jar.update_cookies(response.cookies)
 		if sc in self.config.status_settings.to_retry:
 			raise StatusRetryError(status=sc, context=(await response.text()))
 		elif sc in self.config.status_settings.to_raise:
-			raise self.config.status_settings.exc_to_raise(f"status code: {sc} | {await response.text()}")
+			a, kw = await argfunc(response)
+			if kw is None:
+				raise exc(*a)
+			raise exc(*a, **kw)
 		elif self.config.status_settings.not_found_as_none and sc == HTTPStatus.NOT_FOUND:
 			return None
 
 		return response
 
-	def _get_make_request_func(self) -> Handler[R]:
+	def _get_make_request_func(self) -> Callable[..., Any]:
 		async def _make_request(*args: Any, **kwargs: Any) -> aiohttp.ClientResponse | None:
 			return await self._handle_statuses(await self._session.request(*args, **kwargs))
 
-		handler: Handler[Any] = _make_request
-		for mw in reversed(self._middlewares):
-			handler = mw(handler)
-
-		return handler
+		return reduce(lambda t, s: s(t), reversed(self._middlewares), _make_request)
 
 	async def _handle_request(
 		self,
 		method: str,
 		url: str,
-		make_request_func: Handler[R],
-		**kw,
+		make_request_func: Callable[..., Any],
+		**kw: Any,
 	) -> R:
-		kw_for_request = kw.copy()
 		if self.config.useragent_factory is not None:
 			user_agent_header = {"User-Agent": self.config.useragent_factory()}
-			kw_for_request["headers"] = kw_for_request.get("headers", {}) | user_agent_header
-		return await make_request_func(method, url, **kw_for_request)
+			kw["headers"] = kw.get("headers", {}) | user_agent_header
 
-	async def _handle_retry(self, attempt: int, e: Exception, _: str, __: str, **___) -> None:
+		return await make_request_func(method, url, **kw)
+
+	async def _handle_retry(self, e: Exception, attempt: int, url: str, method: str, **kws: Any) -> None:
 		if attempt == self.config.maximum_retries:
-			raise RunOutOfAttemptsError(f"failed after {self.config.maximum_retries} retries: {type(e)} {e}") from e
+			raise RanOutOfAttemptsError(f"failed after {self.config.maximum_retries} retries: {type(e)} {e}") from e
 
 		await asyncio.sleep(self.config.base * min(MAXIMUM_BACKOFF, self.config.backoff**attempt))
 
-	async def _handle_to_raise(self, e: Exception, url: str, method: str, **kw) -> None:
+	async def _handle_to_raise(self, e: Exception, attempt: int, url: str, method: str, **kw: Any) -> None:
 		if self.config.exception_settings.exc_to_raise is None:
 			raise e
 
-		raise self.config.exception_settings.exc_to_raise(f"EXC: {type(e)} {e}; {url} {method} {kw}") from e
+		exc, argfunc = self.config.exception_settings.exc_to_raise, self.config.exception_settings.args_for_exc_func
 
-	async def _handle_exception(self, e: Exception, url: str, method: str, attempt: int, **kw) -> None:
+		a, exckw = argfunc(e, attempt, url, method, **kw)
+		if exckw is None:
+			raise exc(*a) from e
+
+		raise exc(*a, **exckw) from e
+
+	async def _handle_exception(self, e: Exception, attempt: int, url: str, method: str, **kw: Any) -> None:
 		if self.config.exception_settings.unspecified == "raise":
 			raise e
 
-		await self._handle_retry(attempt, e, url, method, **kw)
+		await self._handle_retry(e, attempt, url, method, **kw)
 
-	async def _request_with_retry(self, method: str, url: str, **kw) -> R:
+	async def _request_with_retry(self, method: str, url: str, **kw: Any) -> R:
 		_make_request = self._get_make_request_func()
 		for attempt in range(self.config.maximum_retries + 1):
 			try:
 				return await self._handle_request(method, url, _make_request, **kw)
 			except self.config.exception_settings.to_retry + (StatusRetryError,) as e:
-				await self._handle_retry(attempt, e, url, method, **kw)
+				await self._handle_retry(e, attempt, url, method, **kw)
 			except self.config.exception_settings.to_raise as e:
-				await self._handle_to_raise(e, url, method, **kw)
+				await self._handle_to_raise(e, attempt, url, method, **kw)
 			except Exception as e:
-				await self._handle_exception(e, url, method, attempt, **kw)
+				await self._handle_exception(e, attempt, url, method, **kw)
 
 		return await _make_request()
 

@@ -13,6 +13,7 @@ dependencies = [
     "loguru>=0.7.3",
     "pydantic>=2.12.5",
     "redis>=7.1.0",
+    "sqlalchemy[asyncio]>=2.0.46",
 ]
 
 
