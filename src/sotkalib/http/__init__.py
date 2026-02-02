@@ -1,17 +1,17 @@
 from .client_session import (
-    ExceptionSettings,
-    Handler,
-    Middleware,
-    RetryableClientSession,
-    RetryableClientSettings,
-    StatusSettings,
+	ClientSession,
+	ClientSettings,
+	ExceptionSettings,
+	Handler,
+	Middleware,
+	StatusSettings,
 )
 
 __all__ = (
-    "RetryableClientSession",
-    "ExceptionSettings",
-    "StatusSettings",
-    "RetryableClientSettings",
-    "Handler",
-    "Middleware",
+	"ClientSession",
+	"ExceptionSettings",
+	"StatusSettings",
+	"ClientSettings",
+	"Handler",
+	"Middleware",
 )

@@ -12,236 +12,236 @@ from pydantic import BaseModel, ConfigDict, Field
 from sotkalib.log import get_logger
 
 try:
-    certifi = importlib.import_module("certifi")
+	certifi = importlib.import_module("certifi")
 except ImportError:
-    certifi = None
+	certifi = None
 
 
 MAXIMUM_BACKOFF: float = 120
 
 
 class RunOutOfAttemptsError(Exception):
-    pass
+	pass
 
 
 class StatusRetryError(Exception):
-    status: int
-    context: str
+	status: int
+	context: str
 
-    def __init__(self, status: int, context: str) -> None:
-        super().__init__(f"{status}: {context}")
-        self.status = status
-        self.context = context
+	def __init__(self, status: int, context: str) -> None:
+		super().__init__(f"{status}: {context}")
+		self.status = status
+		self.context = context
 
 
 class CriticalStatusError(Exception):
-    pass
+	pass
 
 
 class StatusSettings(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+	model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    to_raise: set[HTTPStatus] = Field(default={HTTPStatus.FORBIDDEN})
-    to_retry: set[HTTPStatus] = Field(default={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.FORBIDDEN})
-    exc_to_raise: type[Exception] = Field(default=CriticalStatusError)
-    not_found_as_none: bool = Field(default=True)
-    unspecified: Literal["retry", "raise"] = Field(default="retry")
+	to_raise: set[HTTPStatus] = Field(default={HTTPStatus.FORBIDDEN})
+	to_retry: set[HTTPStatus] = Field(default={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.FORBIDDEN})
+	exc_to_raise: type[Exception] = Field(default=CriticalStatusError)
+	not_found_as_none: bool = Field(default=True)
+	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
 
 class ExceptionSettings(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+	model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    to_raise: tuple[type[Exception]] = Field(
-        default=(
-            client_exceptions.ConnectionTimeoutError,
-            client_exceptions.ClientProxyConnectionError,
-            client_exceptions.ContentTypeError,
-        ),
-    )
+	to_raise: tuple[type[Exception]] = Field(
+		default=(
+			client_exceptions.ConnectionTimeoutError,
+			client_exceptions.ClientProxyConnectionError,
+			client_exceptions.ContentTypeError,
+		),
+	)
 
-    to_retry: tuple[type[Exception]] = Field(
-        default=(
-            TimeoutError,
-            client_exceptions.ServerDisconnectedError,
-            client_exceptions.ClientConnectionResetError,
-            client_exceptions.ClientOSError,
-            client_exceptions.ClientHttpProxyError,
-        ),
-    )
+	to_retry: tuple[type[Exception]] = Field(
+		default=(
+			TimeoutError,
+			client_exceptions.ServerDisconnectedError,
+			client_exceptions.ClientConnectionResetError,
+			client_exceptions.ClientOSError,
+			client_exceptions.ClientHttpProxyError,
+		),
+	)
 
-    exc_to_raise: type[Exception] | None = Field(default=None)
+	exc_to_raise: type[Exception] | None = Field(default=None)
 
-    unspecified: Literal["retry", "raise"] = Field(default="retry")
+	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
 
-class RetryableClientSettings(BaseModel):
-    timeout: float = Field(default=5.0, gt=0)
-    base: float = Field(default=1.0, gt=0)
-    backoff: float = Field(default=2.0, gt=0)
-    maximum_retries: int = Field(default=3, ge=1)
+class ClientSettings(BaseModel):
+	timeout: float = Field(default=5.0, gt=0)
+	base: float = Field(default=1.0, gt=0)
+	backoff: float = Field(default=2.0, gt=0)
+	maximum_retries: int = Field(default=3, ge=1)
 
-    useragent_factory: Callable[[], str] | None = Field(default=None)
+	useragent_factory: Callable[[], str] | None = Field(default=None)
 
-    status_settings: StatusSettings = Field(default_factory=StatusSettings)
-    exception_settings: ExceptionSettings = Field(default_factory=ExceptionSettings)
+	status_settings: StatusSettings = Field(default_factory=StatusSettings)
+	exception_settings: ExceptionSettings = Field(default_factory=ExceptionSettings)
 
-    session_kwargs: dict[str, Any] = Field(default_factory=dict)
-    use_cookies_from_response: bool = Field(default=False)
+	session_kwargs: dict[str, Any] = Field(default_factory=dict)
+	use_cookies_from_response: bool = Field(default=False)
 
 
 class Handler[T](Protocol):
-    async def __call__(self, *args: Any, **kwargs: Any) -> T: ...
+	async def __call__(self, *args: Any, **kwargs: Any) -> T: ...
 
 
 type Middleware[T, R] = Callable[[Handler[T]], Handler[R]]
 
 
 def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ctx.load_default_certs()
+	ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+	ctx.load_default_certs()
 
-    if certifi:
-        ctx.load_verify_locations(certifi.where())
+	if certifi:
+		ctx.load_verify_locations(certifi.where())
 
-    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.maximum_version = ssl.TLSVersion.TLSv1_2 if disable_tls13 else ssl.TLSVersion.TLSv1_3
+	ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+	ctx.maximum_version = ssl.TLSVersion.TLSv1_2 if disable_tls13 else ssl.TLSVersion.TLSv1_3
 
-    ctx.set_ciphers(
-        "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:"
-        "TLS_CHACHA20_POLY1305_SHA256:"
-        "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:"
-        "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
-    )
+	ctx.set_ciphers(
+		"TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:"
+		"TLS_CHACHA20_POLY1305_SHA256:"
+		"ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:"
+		"ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+	)
 
-    ctx.check_hostname = True
-    ctx.verify_mode = ssl.CERT_REQUIRED
+	ctx.check_hostname = True
+	ctx.verify_mode = ssl.CERT_REQUIRED
 
-    return ctx
+	return ctx
 
 
-class RetryableClientSession[R = aiohttp.ClientResponse | None]:
-    config: RetryableClientSettings
-    _session: aiohttp.ClientSession
-    _middlewares: list[Callable[[Handler[Any]], Handler[Any]]]
+class ClientSession[R = aiohttp.ClientResponse | None]:
+	config: ClientSettings
+	_session: aiohttp.ClientSession
+	_middlewares: list[Callable[[Handler[Any]], Handler[Any]]]
 
-    def __init__(
-        self,
-        config: RetryableClientSettings | None = None,
-        _middlewares: list[Callable[[Handler[Any]], Handler[Any]]] | None = None,
-    ) -> None:
-        self.config = config if config is not None else RetryableClientSettings()
-        self._session = None
-        self._middlewares = _middlewares or []
+	def __init__(
+		self,
+		config: ClientSettings | None = None,
+		_middlewares: list[Callable[[Handler[Any]], Handler[Any]]] | None = None,
+	) -> None:
+		self.config = config if config is not None else ClientSettings()
+		self._session = None
+		self._middlewares = _middlewares or []
 
-    def use[NewR](self, mw: Middleware[R, NewR]) -> RetryableClientSession[NewR]:
-        new_session: RetryableClientSession[NewR] = RetryableClientSession(
-            config=self.config,
-            _middlewares=[*self._middlewares, mw],
-        )
-        return new_session
+	def use[NewR](self, mw: Middleware[R, NewR]) -> ClientSession[NewR]:
+		new_session: ClientSession[NewR] = ClientSession(
+			config=self.config,
+			_middlewares=[*self._middlewares, mw],
+		)
+		return new_session
 
-    async def __aenter__(self) -> Self:
-        ctx = _make_ssl_context(disable_tls13=False)
+	async def __aenter__(self) -> Self:
+		ctx = _make_ssl_context(disable_tls13=False)
 
-        if self.config.session_kwargs.get("connector") is None:
-            self.config.session_kwargs["connector"] = aiohttp.TCPConnector(ssl=ctx)
-        if self.config.session_kwargs.get("trust_env") is None:
-            self.config.session_kwargs["trust_env"] = False
+		if self.config.session_kwargs.get("connector") is None:
+			self.config.session_kwargs["connector"] = aiohttp.TCPConnector(ssl=ctx)
+		if self.config.session_kwargs.get("trust_env") is None:
+			self.config.session_kwargs["trust_env"] = False
 
-        self._session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self.config.timeout),
-            **self.config.session_kwargs,
-        )
+		self._session = aiohttp.ClientSession(
+			timeout=aiohttp.ClientTimeout(total=self.config.timeout),
+			**self.config.session_kwargs,
+		)
 
-        get_logger("http.client_session").debug(
-            f"RetryableClientSession initialized with timeout: {self.config.timeout}"
-        )
+		get_logger("http.client_session").debug(
+			f"RetryableClientSession initialized with timeout: {self.config.timeout}"
+		)
 
-        return self
+		return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._session:
-            await self._session.close()
+	async def __aexit__(self, exc_type, exc_val, exc_tb):
+		if self._session:
+			await self._session.close()
 
-    async def _handle_statuses(self, response: aiohttp.ClientResponse) -> aiohttp.ClientResponse | None:
-        sc = response.status
-        if self.config.use_cookies_from_response:
-            self._session.cookie_jar.update_cookies(response.cookies)
-        if sc in self.config.status_settings.to_retry:
-            raise StatusRetryError(status=sc, context=(await response.text()))
-        elif sc in self.config.status_settings.to_raise:
-            raise self.config.status_settings.exc_to_raise(f"status code: {sc} | {await response.text()}")
-        elif self.config.status_settings.not_found_as_none and sc == HTTPStatus.NOT_FOUND:
-            return None
+	async def _handle_statuses(self, response: aiohttp.ClientResponse) -> aiohttp.ClientResponse | None:
+		sc = response.status
+		if self.config.use_cookies_from_response:
+			self._session.cookie_jar.update_cookies(response.cookies)
+		if sc in self.config.status_settings.to_retry:
+			raise StatusRetryError(status=sc, context=(await response.text()))
+		elif sc in self.config.status_settings.to_raise:
+			raise self.config.status_settings.exc_to_raise(f"status code: {sc} | {await response.text()}")
+		elif self.config.status_settings.not_found_as_none and sc == HTTPStatus.NOT_FOUND:
+			return None
 
-        return response
+		return response
 
-    def _get_make_request_func(self) -> Handler[R]:
-        async def _make_request(*args: Any, **kwargs: Any) -> aiohttp.ClientResponse | None:
-            return await self._handle_statuses(await self._session.request(*args, **kwargs))
+	def _get_make_request_func(self) -> Handler[R]:
+		async def _make_request(*args: Any, **kwargs: Any) -> aiohttp.ClientResponse | None:
+			return await self._handle_statuses(await self._session.request(*args, **kwargs))
 
-        handler: Handler[Any] = _make_request
-        for mw in reversed(self._middlewares):
-            handler = mw(handler)
+		handler: Handler[Any] = _make_request
+		for mw in reversed(self._middlewares):
+			handler = mw(handler)
 
-        return handler
+		return handler
 
-    async def _handle_request(
-        self,
-        method: str,
-        url: str,
-        make_request_func: Handler[R],
-        **kw,
-    ) -> R:
-        kw_for_request = kw.copy()
-        if self.config.useragent_factory is not None:
-            user_agent_header = {"User-Agent": self.config.useragent_factory()}
-            kw_for_request["headers"] = kw_for_request.get("headers", {}) | user_agent_header
-        return await make_request_func(method, url, **kw_for_request)
+	async def _handle_request(
+		self,
+		method: str,
+		url: str,
+		make_request_func: Handler[R],
+		**kw,
+	) -> R:
+		kw_for_request = kw.copy()
+		if self.config.useragent_factory is not None:
+			user_agent_header = {"User-Agent": self.config.useragent_factory()}
+			kw_for_request["headers"] = kw_for_request.get("headers", {}) | user_agent_header
+		return await make_request_func(method, url, **kw_for_request)
 
-    async def _handle_retry(self, attempt: int, e: Exception, _: str, __: str, **___) -> None:
-        if attempt == self.config.maximum_retries:
-            raise RunOutOfAttemptsError(f"failed after {self.config.maximum_retries} retries: {type(e)} {e}") from e
+	async def _handle_retry(self, attempt: int, e: Exception, _: str, __: str, **___) -> None:
+		if attempt == self.config.maximum_retries:
+			raise RunOutOfAttemptsError(f"failed after {self.config.maximum_retries} retries: {type(e)} {e}") from e
 
-        await asyncio.sleep(self.config.base * min(MAXIMUM_BACKOFF, self.config.backoff**attempt))
+		await asyncio.sleep(self.config.base * min(MAXIMUM_BACKOFF, self.config.backoff**attempt))
 
-    async def _handle_to_raise(self, e: Exception, url: str, method: str, **kw) -> None:
-        if self.config.exception_settings.exc_to_raise is None:
-            raise e
+	async def _handle_to_raise(self, e: Exception, url: str, method: str, **kw) -> None:
+		if self.config.exception_settings.exc_to_raise is None:
+			raise e
 
-        raise self.config.exception_settings.exc_to_raise(f"EXC: {type(e)} {e}; {url} {method} {kw}") from e
+		raise self.config.exception_settings.exc_to_raise(f"EXC: {type(e)} {e}; {url} {method} {kw}") from e
 
-    async def _handle_exception(self, e: Exception, url: str, method: str, attempt: int, **kw) -> None:
-        if self.config.exception_settings.unspecified == "raise":
-            raise e
+	async def _handle_exception(self, e: Exception, url: str, method: str, attempt: int, **kw) -> None:
+		if self.config.exception_settings.unspecified == "raise":
+			raise e
 
-        await self._handle_retry(attempt, e, url, method, **kw)
+		await self._handle_retry(attempt, e, url, method, **kw)
 
-    async def _request_with_retry(self, method: str, url: str, **kw) -> R:
-        _make_request = self._get_make_request_func()
-        for attempt in range(self.config.maximum_retries + 1):
-            try:
-                return await self._handle_request(method, url, _make_request, **kw)
-            except self.config.exception_settings.to_retry + (StatusRetryError,) as e:
-                await self._handle_retry(attempt, e, url, method, **kw)
-            except self.config.exception_settings.to_raise as e:
-                await self._handle_to_raise(e, url, method, **kw)
-            except Exception as e:
-                await self._handle_exception(e, url, method, attempt, **kw)
+	async def _request_with_retry(self, method: str, url: str, **kw) -> R:
+		_make_request = self._get_make_request_func()
+		for attempt in range(self.config.maximum_retries + 1):
+			try:
+				return await self._handle_request(method, url, _make_request, **kw)
+			except self.config.exception_settings.to_retry + (StatusRetryError,) as e:
+				await self._handle_retry(attempt, e, url, method, **kw)
+			except self.config.exception_settings.to_raise as e:
+				await self._handle_to_raise(e, url, method, **kw)
+			except Exception as e:
+				await self._handle_exception(e, url, method, attempt, **kw)
 
-        return await _make_request()
+		return await _make_request()
 
-    async def get(self, url: str, **kwargs: Any) -> R:
-        return await self._request_with_retry("GET", url, **kwargs)
+	async def get(self, url: str, **kwargs: Any) -> R:
+		return await self._request_with_retry("GET", url, **kwargs)
 
-    async def post(self, url: str, **kwargs: Any) -> R:
-        return await self._request_with_retry("POST", url, **kwargs)
+	async def post(self, url: str, **kwargs: Any) -> R:
+		return await self._request_with_retry("POST", url, **kwargs)
 
-    async def put(self, url: str, **kwargs: Any) -> R:
-        return await self._request_with_retry("PUT", url, **kwargs)
+	async def put(self, url: str, **kwargs: Any) -> R:
+		return await self._request_with_retry("PUT", url, **kwargs)
 
-    async def delete(self, url: str, **kwargs: Any) -> R:
-        return await self._request_with_retry("DELETE", url, **kwargs)
+	async def delete(self, url: str, **kwargs: Any) -> R:
+		return await self._request_with_retry("DELETE", url, **kwargs)
 
-    async def patch(self, url: str, **kwargs: Any) -> R:
-        return await self._request_with_retry("PATCH", url, **kwargs)
+	async def patch(self, url: str, **kwargs: Any) -> R:
+		return await self._request_with_retry("PATCH", url, **kwargs)
