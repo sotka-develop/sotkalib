@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.0.3"
+version = "0.0.4"
 description = ""
 authors = [
     { email = "me@pyrorhythm.dev", name = "alexey" }
