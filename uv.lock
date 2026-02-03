@@ -780,7 +780,7 @@ wheels = [
 
 [[package]]
 name = "sotkalib"
-version = "0.0.4"
+version = "0.0.4+patch"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -803,12 +803,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.3" },
+    { name = "aiohttp", specifier = ">=3.13.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "redis", specifier = ">=7.1.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.46" },
+    { name = "pydantic", specifier = ">=2.12.0" },
+    { name = "redis", specifier = ">=6.4.0,<8.0.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0" },
 ]
 
 [package.metadata.requires-dev]

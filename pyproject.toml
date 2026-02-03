@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.0.4"
+version = "0.0.4+patch"
 description = ""
 authors = [
     { email = "me@pyrorhythm.dev", name = "alexey" }
@@ -8,12 +8,12 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "aiohttp>=3.13.3",
+    "aiohttp>=3.13.0",
     "dotenv>=0.9.9",
     "loguru>=0.7.3",
-    "pydantic>=2.12.5",
-    "redis>=7.1.0",
-    "sqlalchemy[asyncio]>=2.0.46",
+    "pydantic>=2.12.0",
+    "redis>=6.4.0,<8.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
 ]
 
 
