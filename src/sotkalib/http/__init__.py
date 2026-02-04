@@ -1,16 +1,14 @@
 from .client_session import (
-	HTTPSession,
 	ClientSettings,
+	CriticalStatusError,
 	ExceptionSettings,
-	Handler,
+	HTTPSession,
 	Middleware,
 	Next,
-	RequestContext,
-	StatusSettings,
-	# Exceptions
-	CriticalStatusError,
 	RanOutOfAttemptsError,
+	RequestContext,
 	StatusRetryError,
+	StatusSettings,
 )
 
 __all__ = (
@@ -19,7 +17,6 @@ __all__ = (
 	"ExceptionSettings",
 	"StatusSettings",
 	"ClientSettings",
-	"Handler",
 	"Middleware",
 	"Next",
 	# Exceptions

@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import AbstractAsyncContextManager
+from typing import Self
 
 from pydantic import BaseModel, Field
 from redis.asyncio import ConnectionPool, Redis
@@ -29,7 +30,7 @@ class RedisPool(AbstractAsyncContextManager):
 		self._usage_counter = 0
 		self._usage_lock = asyncio.Lock()
 
-	async def __aenter__(self: RedisPool) -> Redis:
+	async def __aenter__(self: Self) -> Redis:
 		try:
 			return Redis(connection_pool=self._pool)
 		except Exception:

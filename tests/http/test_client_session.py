@@ -266,7 +266,7 @@ class TestMiddleware:
 			return await resp.json()
 
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
-		session: HTTPSession[dict] = HTTPSession(config).use(json_mw)
+		session = HTTPSession(config).use(json_mw)
 		async with session as s:
 			data = await s.get(f"{base_url}/ok")
 			assert isinstance(data, dict)

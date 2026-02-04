@@ -119,9 +119,11 @@ async def default_stat_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], Non
 
 
 def default_exc_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
-	exc = ctx.last_error
-	msg = f"exception {type(exc)}: ({exc=}) attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
-	return (msg,), None
+	return (
+		(
+			f"exception {type(ctx.last_error)}: ({ctx.last_error=}) attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
+		),
+	), None
 
 
 class StatusSettings(BaseModel):
@@ -215,7 +217,7 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		self._middlewares = _middlewares or []
 		self._logger = get_logger("http.client_session")
 
-	def use[NewR](self, middleware: Middleware[R, NewR]) -> HTTPSession[NewR]:
+	def use[NewR](self, middleware: Middleware[R, NewR]) -> "HTTPSession[NewR]":
 		return HTTPSession[NewR](
 			config=self.config,
 			_middlewares=[*self._middlewares, middleware],
@@ -424,21 +426,3 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 def merge_tuples[T](t1: tuple[T, ...], t2: tuple[T, ...]) -> tuple[T, ...]:
 	return t1 + t2
-
-
-# ============================================================================
-# Legacy compatibility aliases
-# ============================================================================
-
-# Old Handler protocol - kept for backwards compatibility but deprecated
-from typing import Protocol
-
-
-class Handler[**P, T](Protocol):
-	"""
-	DEPRECATED: Use Middleware type instead.
-
-	Old handler protocol for backwards compatibility.
-	"""
-
-	async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T: ...
