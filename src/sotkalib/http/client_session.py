@@ -189,9 +189,9 @@ class ClientSettings(BaseModel):
 		for k, v in kws.items():
 			if "." in k:
 				pk, ck = k.split(".")
-				setattr(self, pk, setattr(getattr(self, pk), ck, v))
-
-			setattr(self, k, v)
+				setattr(getattr(self, pk), ck, v)
+			else:
+				setattr(self, k, v)
 
 		return self
 
