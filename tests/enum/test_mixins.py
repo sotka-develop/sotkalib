@@ -2,22 +2,22 @@ from enum import auto
 
 import pytest
 
-from sotkalib.enum.mixins import UppercaseMixin, ValidatorMixin, ValuesMixin
+from sotkalib.enum.mixins import UppercaseStrEnumMixin, ValidatorStrEnumMixin
 
 
-class Color(UppercaseMixin):
+class Color(UppercaseStrEnumMixin):
 	red = auto()
 	green = auto()
 	blue = auto()
 
 
-class Fruit(ValidatorMixin):
+class Fruit(ValidatorStrEnumMixin):
 	apple = "apple"
 	banana = "banana"
 	cherry = "cherry"
 
 
-class TestUppercaseMixin:
+class TestUppercaseStrEnumMixin:
 	def test_values_are_uppercased(self):
 		assert Color.red == "RED"
 		assert Color.green == "GREEN"
@@ -27,7 +27,7 @@ class TestUppercaseMixin:
 		assert isinstance(Color.red, str)
 
 
-class TestValidatorMixin:
+class TestValidatorStrEnumMixin:
 	def test_validate_valid(self):
 		assert Fruit.validate(val="apple") is Fruit.apple
 
@@ -70,20 +70,3 @@ class TestValidatorMixin:
 
 	def test_values(self):
 		assert list(Fruit.values()) == [Fruit.apple, Fruit.banana, Fruit.cherry]
-
-
-class Constants(ValuesMixin):
-	FOO = "foo"
-	BAR = "bar"
-	BAZ = "baz"
-
-
-class TestValuesMixin:
-	def test_values_list(self):
-		assert Constants.values_list() == ["foo", "bar", "baz"]
-
-	def test_values_set(self):
-		assert Constants.values_set() == {"foo", "bar", "baz"}
-
-	def test_names_list(self):
-		assert Constants.names_list() == ["FOO", "BAR", "BAZ"]

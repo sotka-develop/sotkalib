@@ -1,15 +1,15 @@
 from collections.abc import Sequence
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Literal, Self, overload
 
 
-class UppercaseMixin(StrEnum):
+class UppercaseStrEnumMixin(str, Enum):
 	@staticmethod
 	def _generate_next_value_(name: str, start: int, count: int, last_values: Sequence) -> str:  # noqa
 		return name.upper()
 
 
-class ValidatorMixin(StrEnum):
+class ValidatorStrEnumMixin(str, Enum):
 	@classmethod
 	def _normalize_value(cls, val: Any) -> str:
 		if isinstance(val, (str, bytes, bytearray)):
@@ -57,17 +57,3 @@ class ValidatorMixin(StrEnum):
 	@classmethod
 	def values(cls) -> Sequence[Self]:
 		return list(cls)
-
-
-class ValuesMixin:
-	@classmethod
-	def values_list(cls) -> list[str]:
-		return [v for k, v in vars(cls).items() if not k.startswith("_") and isinstance(v, str)]
-
-	@classmethod
-	def values_set(cls) -> set[str]:
-		return set(cls.values_list())
-
-	@classmethod
-	def names_list(cls) -> list[str]:
-		return [k for k, v in vars(cls).items() if not k.startswith("_") and isinstance(v, str)]
