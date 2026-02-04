@@ -1,3 +1,3 @@
-from .mixins import UppercaseStrEnumMixin, ValidatorStrEnumMixin
+from .mixins import UppercaseMixin, ValidatorMixin, ValuesMixin
 
-__all__ = ["ValidatorStrEnumMixin", "UppercaseStrEnumMixin"]
+__all__ = ["ValidatorMixin", "UppercaseMixin", "ValuesMixin"]

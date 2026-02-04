@@ -1,6 +1,6 @@
 import http
 
-from sotkalib.exceptions.api.exc import APIError, BaseHTTPError, ErrorSchema
+from sotkalib.exceptions.api import APIError, BaseHTTPError, ErrorSchema
 
 
 class TestErrorSchema:
