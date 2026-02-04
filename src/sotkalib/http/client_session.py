@@ -86,6 +86,12 @@ class RequestContext:
 	def status(self) -> int | None:
 		return self.response.status if self.response else None
 
+	def with_(self, **kws) -> Self:
+		for k, v in kws.items():
+			setattr(self, k, v)
+
+		return self
+
 	def merge_headers(self, headers: dict[str, str]) -> None:
 		if self.headers is None:
 			self.headers = {}
