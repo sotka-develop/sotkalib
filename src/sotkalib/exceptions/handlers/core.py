@@ -2,6 +2,8 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any
 
+from sotkalib.log import get_logger
+
 from .args_incl_error import ArgsIncludedError
 
 
@@ -14,6 +16,7 @@ def exception_handler[**P, R](
 		try:
 			return func(*args, **kwargs)
 		except Exception as e:
+			get_logger().exception("")
 			raise ArgsIncludedError(*e.args, stack_depth=stack_depth) from e
 
 	return wrapper
@@ -28,6 +31,7 @@ def aexception_handler[**P, R](
 		try:
 			return await func(*args, **kwargs)
 		except Exception as e:
+			get_logger().exception("")
 			raise ArgsIncludedError(*e.args, stack_depth=stack_depth) from e
 
 	return wrapper
