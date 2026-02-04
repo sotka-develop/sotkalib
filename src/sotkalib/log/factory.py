@@ -1,10 +1,6 @@
 from functools import lru_cache
-from typing import TYPE_CHECKING
 
-from loguru import logger
-
-if TYPE_CHECKING:
-	from loguru import Logger
+from loguru import Logger, logger
 
 
 @lru_cache
