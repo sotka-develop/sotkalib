@@ -7,9 +7,9 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from sotkalib.http.client_session import (
-	HTTPSession,
 	ClientSettings,
 	ExceptionSettings,
+	HTTPSession,
 	RanOutOfAttemptsError,
 	RequestContext,
 	StatusRetryError,
@@ -22,19 +22,19 @@ from sotkalib.http.client_session import (
 def app():
 	application = web.Application()
 
-	async def ok_handler(request):
+	async def ok_handler(_):
 		return web.json_response({"status": "ok"})
 
-	async def error_handler(request):
+	async def error_handler(_):
 		return web.Response(status=500, text="Internal Server Error")
 
-	async def not_found_handler(request):
+	async def not_found_handler(_):
 		return web.Response(status=404, text="Not Found")
 
-	async def forbidden_handler(request):
+	async def forbidden_handler(_):
 		return web.Response(status=403, text="Forbidden")
 
-	async def rate_limit_handler(request):
+	async def rate_limit_handler(_):
 		return web.Response(status=429, text="Too Many Requests")
 
 	async def echo_headers_handler(request):
@@ -289,8 +289,11 @@ class TestMiddleware:
 			order.append("mw2-after")
 			return result
 
-		async with HTTPSession(
-				ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})).use(mw1).use(mw2) as s:
+		async with (
+			HTTPSession(ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}))
+			.use(mw1)
+			.use(mw2) as s
+		):
 			await s.get(f"{base_url}/ok")
 
 		assert order == ["mw1-before", "mw2-before", "mw2-after", "mw1-after"]

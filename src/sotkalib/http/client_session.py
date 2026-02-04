@@ -107,16 +107,21 @@ class RequestContext:
 type Next[T] = Callable[[RequestContext], Awaitable[T]]
 type Middleware[T, R] = Callable[[RequestContext, Next[T]], Awaitable[R]]
 
-type ExcArgFunc = Callable[..., tuple[Sequence[Any], Mapping[str, Any] | None]]
-type StatArgFunc = Callable[..., Any]
+type ExcArgFunc = Callable[[RequestContext], tuple[Sequence[Any], Mapping[str, Any] | None]]
+type StatArgFunc = Callable[[RequestContext], tuple[Sequence[Any], Mapping[str, Any] | None]]
 
 
-async def default_stat_arg_func(resp: aiohttp.ClientResponse) -> tuple[Sequence[Any], None]:
+async def default_stat_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
+	resp = ctx.response
+	if resp is None:
+		return (), None
 	return (f"[{resp.status}]; {await resp.text()=}",), None
 
 
-def default_exc_arg_func(exc: Exception, attempt: int, url: str, method: str, **kw) -> tuple[Sequence[Any], None]:
-	return (f"exception {type(exc)}: ({exc=}) {attempt=}; {url=} {method=} {kw=}",), None
+def default_exc_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
+	exc = ctx.last_error
+	msg = f"exception {type(exc)}: ({exc=}) attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
+	return (msg,), None
 
 
 class StatusSettings(BaseModel):
@@ -171,11 +176,6 @@ class ClientSettings(BaseModel):
 	use_cookies_from_response: bool = Field(default=False)
 
 
-# ============================================================================
-# SSL Context
-# ============================================================================
-
-
 def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
 	ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 	ctx.load_default_certs()
@@ -197,11 +197,6 @@ def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
 	ctx.verify_mode = ssl.CERT_REQUIRED
 
 	return ctx
-
-
-# ============================================================================
-# HTTP Session
-# ============================================================================
 
 
 class HTTPSession[R = aiohttp.ClientResponse | None]:
@@ -253,20 +248,16 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 			await self._session.close()
 
 	def _build_pipeline(self) -> Next[R]:
-		"""Build the middleware pipeline with the core request at the end."""
-
 		async def core_request(ctx: RequestContext) -> aiohttp.ClientResponse | None:
-			"""The innermost handler that actually makes the HTTP request."""
 			return await self._execute_request(ctx)
 
 		pipeline: Next[Any] = core_request
 		for middleware in reversed(self._middlewares):
-			pipeline = (lambda mw, nxt: lambda c: mw(c, nxt))(middleware, pipeline)
+			pipeline = (lambda mw, nxt: lambda c: mw(c, nxt))(middleware, pipeline)  # noqa: PLC3002
 
 		return pipeline
 
 	async def _execute_request(self, ctx: RequestContext) -> aiohttp.ClientResponse | None:
-		"""Execute the actual HTTP request and handle status codes."""
 		if self._session is None:
 			raise RuntimeError("HTTPSession must be used as async context manager")
 
@@ -280,7 +271,6 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		ctx: RequestContext,
 		response: aiohttp.ClientResponse,
 	) -> aiohttp.ClientResponse | None:
-		"""Handle HTTP status codes according to settings."""
 		status = response.status
 		settings = self.config.status_settings
 
@@ -294,7 +284,7 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 		if HTTPStatus(status) in settings.to_raise:
 			exc_cls = settings.exc_to_raise
-			args, kwargs = await settings.args_for_exc_func(response)
+			args, kwargs = settings.args_for_exc_func(ctx)
 			if kwargs is None:
 				raise exc_cls(*args)
 			raise exc_cls(*args, **kwargs)
@@ -304,9 +294,7 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 		return response
 
-
 	async def _request_with_retry(self, ctx: RequestContext) -> R:
-		"""Execute request with retry logic."""
 		ctx.started_at = time.monotonic()
 		ctx.max_attempts = self.config.maximum_retries + 1
 
@@ -357,14 +345,11 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		await asyncio.sleep(delay)
 
 	async def _handle_to_raise(self, ctx: RequestContext, e: Exception) -> None:
-		"""Handle exceptions that should be re-raised (possibly wrapped)."""
 		exc_cls = self.config.exception_settings.exc_to_raise
 		if exc_cls is None:
 			raise e
 
-		args, kwargs = self.config.exception_settings.args_for_exc_func(
-			e, ctx.attempt, ctx.url, ctx.method, **ctx.to_request_kwargs()
-		)
+		args, kwargs = self.config.exception_settings.args_for_exc_func(ctx)
 		if kwargs is None:
 			raise exc_cls(*args) from e
 		raise exc_cls(*args, **kwargs) from e
@@ -439,6 +424,8 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 def merge_tuples[T](t1: tuple[T, ...], t2: tuple[T, ...]) -> tuple[T, ...]:
 	return t1 + t2
+
+
 # ============================================================================
 # Legacy compatibility aliases
 # ============================================================================
