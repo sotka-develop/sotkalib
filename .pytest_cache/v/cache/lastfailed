@@ -1,7 +1,0 @@
-{
-  "tests/redis/test_lock.py::test_concurrent_lock_contention": true,
-  "tests/http/test_client_session.py": true,
-  "tests/exceptions/test_exc.py::TestErrorSchema": true,
-  "tests/exceptions/test_exc.py::TestBaseHTTPError": true,
-  "tests/exceptions/test_exc.py::TestAPIError": true
-}
