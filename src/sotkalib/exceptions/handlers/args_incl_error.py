@@ -11,5 +11,5 @@ class ArgsIncludedError(Exception):
 			args, _, _, values = inspect.getargvalues(frame)
 			f_locals = frame.f_locals
 			args_with_values = {arg: values[arg] for arg in args}
-			stack_args_to_exc.append(args_with_values | f_locals | { "frame_name": frame.f_code.co_name })
+			stack_args_to_exc.append(args_with_values | f_locals | {"frame_name": frame.f_code.co_name})
 		super().__init__(*_args, *stack_args_to_exc)
