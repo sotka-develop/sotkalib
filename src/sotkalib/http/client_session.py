@@ -86,12 +86,6 @@ class RequestContext:
 	def status(self) -> int | None:
 		return self.response.status if self.response else None
 
-	def with_(self, **kws) -> Self:
-		for k, v in kws.items():
-			setattr(self, k, v)
-
-		return self
-
 	def merge_headers(self, headers: dict[str, str]) -> None:
 		if self.headers is None:
 			self.headers = {}
@@ -182,6 +176,24 @@ class ClientSettings(BaseModel):
 
 	session_kwargs: dict[str, Any] = Field(default_factory=dict)
 	use_cookies_from_response: bool = Field(default=False)
+
+	def with_(self, **kws) -> Self:
+		"""
+
+		apply kws to settings
+
+		'.' is a separator so you can access underlying status_settings and exception_settings
+
+		"""
+
+		for k, v in kws.items():
+			if "." in k:
+				pk, ck = k.split(".")
+				setattr(self, pk, setattr(getattr(self, pk), ck, v))
+
+			setattr(self, k, v)
+
+		return self
 
 
 def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
