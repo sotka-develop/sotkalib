@@ -3,14 +3,6 @@ from collections.abc import Callable
 from sotkalib.type import _UnsetType
 
 
-def _valid_keys[K, V](d: dict[K, V]) -> set[K]:
-	return {k for k, v in d.items() if not isinstance(v, _UnsetType)}
-
-
-def _filter[K, V](d: dict[K, V], f: Callable[[K, V], bool]) -> _dict[K, V]:
-	return _dict({k: v for k, v in d.items() if f(k, v)})
-
-
 class _dict[K, V](dict[K, V]):  # noqa: N801
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -27,6 +19,14 @@ class _dict[K, V](dict[K, V]):  # noqa: N801
 
 	def not_none(self) -> "_dict[K, V]":
 		return not_none(self)
+
+
+def _valid_keys[K, V](d: dict[K, V]) -> set[K]:
+	return {k for k, v in d.items() if not isinstance(v, _UnsetType)}
+
+
+def _filter[K, V](d: dict[K, V], f: Callable[[K, V], bool]) -> _dict[K, V]:
+	return _dict({k: v for k, v in d.items() if f(k, v)})
 
 
 def valid[K, V](d: dict[K, V]) -> _dict[K, V]:
