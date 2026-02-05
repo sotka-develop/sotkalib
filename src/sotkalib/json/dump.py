@@ -13,54 +13,47 @@ def safe_serialize_value(obj: Any, _depth: int = 0, _depth_limit: int = 10) -> A
 	if _depth > _depth_limit:
 		return str(obj)
 
-	val: Any
+	if obj is None or isinstance(obj, (str, int, float, bool)):
+		return obj
 
-	match obj:
-		case None:
-			val = None
-		case str() | int() | float() | bool():
-			val = obj
-		case datetime() | date():
-			val = obj.isoformat()
-		case Decimal():
-			val = float(obj)
-		case UUID():
-			val = str(obj)
-		case Enum():
-			val = obj.value
-		case bytes():
-			val = obj.decode("utf-8", errors="replace")
-		case dict():
-			val = {k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit) for k, v in obj.items()}
-		case list() | tuple() | set() | frozenset():
-			val = [safe_serialize_value(item, _depth=_depth + 1, _depth_limit=_depth_limit) for item in obj]
-		case _ if hasattr(obj, "model_dump"):
-			try:
-				val = {
-					k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit)
-					for k, v in obj.model_dump().items()
-				}
-			except Exception:
-				val = None
-		case _ if hasattr(obj, "__dict__"):
-			try:
-				val = {
-					k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit)
-					for k, v in obj.__dict__.items()
-				}
-			except Exception:
-				val = None
-		case _:
-			try:
-				orjson.dumps(obj)
-				val = obj
-			except (TypeError, ValueError):
-				try:
-					val = str(obj)
-				except Exception:
-					val = None
+	if isinstance(obj, (datetime, date)):
+		return obj.isoformat()
+	if isinstance(obj, Decimal):
+		return float(obj)
+	if isinstance(obj, UUID):
+		return str(obj)
+	if isinstance(obj, Enum):
+		return obj.value
+	if isinstance(obj, bytes):
+		return obj.decode("utf-8", errors="replace")
 
-	return val
+	if isinstance(obj, dict):
+		return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.items()}
+	if isinstance(obj, (list, tuple, set, frozenset)):
+		return [safe_serialize_value(item, _depth + 1, _depth_limit) for item in obj]
+
+	if hasattr(obj, "model_dump"):
+		try:
+			return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.model_dump().items()}
+		except Exception:
+			return None
+
+	if hasattr(obj, "__dict__"):
+		try:
+			return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.__dict__.items()}
+		except Exception:
+			return None
+
+	try:
+		orjson.dumps(obj)
+		return obj
+	except (TypeError, ValueError):
+		pass
+
+	try:
+		return str(obj)
+	except Exception:
+		return None
 
 
 def safe_serialize(data: Any) -> bytes:
