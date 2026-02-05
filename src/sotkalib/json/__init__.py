@@ -1,4 +1,4 @@
-from .serialize import safe_serialize, safe_serialize_value
+from .dump import safe_serialize, safe_serialize_value
 
 __all__ = [
 	"safe_serialize",
