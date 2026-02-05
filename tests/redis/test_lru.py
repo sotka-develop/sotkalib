@@ -1,7 +1,7 @@
 import pytest
 from redis.asyncio import Redis
 
-from sotkalib.redis.lru import B64Pickle, LockerSettings, RedisLRU
+from sotkalib.redis.lru import B64Pickle, LRUSettings, RedisLRU
 from sotkalib.redis.pool import RedisPool, RedisPoolSettings
 
 
@@ -294,9 +294,9 @@ def test_b64pickle_handles_various_types():
 		assert unmarshaled == original
 
 
-def test_locker_base_settings_defaults():
-	"""LockerBaseSettings has correct defaults."""
-	settings = LockerSettings()
+def test_lru_settings_defaults():
+	"""LRUSettings has correct defaults."""
+	settings = LRUSettings()
 	assert settings.version == 1
 	assert settings.ttl == 600
 	assert settings.serializer is B64Pickle

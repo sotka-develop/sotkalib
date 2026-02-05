@@ -1,26 +1,19 @@
-from sotkalib.dict import without_unset
+from sotkalib.dict.util import valid
 from sotkalib.type import Unset
 
 
 class TestWithoutUnset:
 	def test_removes_unset_values(self):
-		d = {"a": 1, "b": Unset, "c": 3}
-		result = without_unset(d)
-		assert result == {"a": 1, "c": 3}
+		assert (valid({"a": 1, "b": Unset, "c": 3})) == {"a": 1, "c": 3}
 
 	def test_preserves_none(self):
-		d = {"a": None, "b": Unset}
-		result = without_unset(d)
-		assert result == {"a": None}
+		assert valid({"a": None, "b": Unset}) == {"a": None}
 
 	def test_empty_dict(self):
-		assert without_unset({}) == {}
+		assert valid({}) == {}
 
 	def test_all_unset(self):
-		d = {"a": Unset, "b": Unset}
-		assert without_unset(d) == {}
+		assert valid({"a": Unset, "b": Unset}) == {}
 
 	def test_no_unset(self):
-		d = {"a": 1, "b": 2}
-		result = without_unset(d)
-		assert result == {"a": 1, "b": 2}
+		assert valid({"a": 1, "b": 2}) == {"a": 1, "b": 2}

@@ -121,7 +121,8 @@ async def default_stat_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], Non
 def default_exc_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
 	return (
 		(
-			f"exception {type(ctx.last_error)}: ({ctx.last_error=}) attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
+			f"exception {type(ctx.last_error)}: ({ctx.last_error=}) "
+			"attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
 		),
 	), None
 

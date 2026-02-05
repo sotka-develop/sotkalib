@@ -42,7 +42,7 @@ def base_keyfunc(version: int, func_name: str, *args: tuple, **kwargs: dict[str,
 	return f"{version}_{datetime.now().isoformat()}_{func_name}_{B64Pickle.marshal((args, kwargs))}"
 
 
-class LockerSettings(BaseModel):
+class LRUSettings(BaseModel):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
 
 	version: int = 1
@@ -51,12 +51,15 @@ class LockerSettings(BaseModel):
 	keyfunc: SkipValidation[keyfunc] = base_keyfunc
 
 
+LockerSettings = LRUSettings
+
+
 class RedisLRU:
 	__slots__ = ("_redis_factory", "_version", "_ttl", "_serializer", "_keyfunc", "_is_copy", "__pickle_allowed")
 
-	def __init__(self, redis_factory: AbstractAsyncContextManager[Redis], settings: LockerSettings | None = None):
+	def __init__(self, redis_factory: AbstractAsyncContextManager[Redis], settings: LRUSettings | None = None):
 		if settings is None:
-			settings = LockerSettings()
+			settings = LRUSettings()
 
 		self.__pickle_allowed = (os.getenv("LRU_CACHE_ALLOW_PICKLE", "").lower() == "yes") or False
 		self._redis_factory = redis_factory

@@ -45,7 +45,7 @@ def safe_serialize_value(obj: Any) -> Any:
 			try:
 				orjson.dumps(obj)
 				val = obj
-			except TypeError, ValueError:
+			except (TypeError, ValueError):
 				val = None
 
 	return val

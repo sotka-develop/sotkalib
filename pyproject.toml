@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.1.2b3"
+version = "0.1.2"
 description = ""
 authors = [
     { email = "me@pyrorhythm.dev", name = "alexey" }
@@ -46,7 +46,7 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py314"
+target-version = "py313"
 src = ["src"]
 
 [tool.ruff.format]

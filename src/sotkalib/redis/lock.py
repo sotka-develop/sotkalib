@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from time import time
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from redis.asyncio import Redis
 
@@ -38,6 +38,7 @@ async def __wait_till_lock_free(
 		attempt += 1
 
 
+@runtime_checkable
 class strable(Protocol):  # noqa: N801
 	def __str__(self) -> str: ...
 
@@ -67,8 +68,8 @@ async def redis_context_lock(
 	if args_to_lock_exception is None:
 		args_to_lock_exception = []
 
-	if isinstance(key_to_lock, strable):
-		key_to_lock = str(strable)
+	if isinstance(key_to_lock, strable) and not isinstance(key_to_lock, str):
+		key_to_lock = str(key_to_lock)
 
 	if wait_for_lock:
 		async with client as rc:
