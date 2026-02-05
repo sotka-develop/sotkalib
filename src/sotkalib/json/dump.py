@@ -9,7 +9,10 @@ import orjson
 from sotkalib.log import get_logger
 
 
-def safe_serialize_value(obj: Any) -> Any:
+def safe_serialize_value(obj: Any, _depth: int = 0, _depth_limit: int = 10) -> Any:
+	if _depth > _depth_limit:
+		return str(obj)
+
 	val: Any
 
 	match obj:
@@ -28,17 +31,23 @@ def safe_serialize_value(obj: Any) -> Any:
 		case bytes():
 			val = obj.decode("utf-8", errors="replace")
 		case dict():
-			val = {k: safe_serialize_value(v) for k, v in obj.items()}
+			val = {k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit) for k, v in obj.items()}
 		case list() | tuple() | set() | frozenset():
-			val = [safe_serialize_value(item) for item in obj]
+			val = [safe_serialize_value(item, _depth=_depth + 1, _depth_limit=_depth_limit) for item in obj]
 		case _ if hasattr(obj, "model_dump"):
 			try:
-				val = {k: safe_serialize_value(v) for k, v in obj.model_dump().items()}
+				val = {
+					k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit)
+					for k, v in obj.model_dump().items()
+				}
 			except Exception:
 				val = None
 		case _ if hasattr(obj, "__dict__"):
 			try:
-				val = {k: safe_serialize_value(v) for k, v in obj.__dict__.items()}
+				val = {
+					k: safe_serialize_value(v, _depth=_depth + 1, _depth_limit=_depth_limit)
+					for k, v in obj.__dict__.items()
+				}
 			except Exception:
 				val = None
 		case _:
@@ -46,7 +55,10 @@ def safe_serialize_value(obj: Any) -> Any:
 				orjson.dumps(obj)
 				val = obj
 			except (TypeError, ValueError):
-				val = None
+				try:
+					val = str(obj)
+				except Exception:
+					val = None
 
 	return val
 

@@ -11,7 +11,5 @@ lint:
 	uv run ruff check --fix-only .
 	uv run ruff format .
 
-test-lima:
-	DOCKER_HOST=unix://${HOME}/.lima/default/sock/docker.sock \
-	TESTCONTAINERS_RYUK_DISABLED=true \
+test:
 	uv run pytest tests/ -v --tb=short 2>&1 | tail -60
