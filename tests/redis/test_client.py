@@ -1,7 +1,7 @@
 import pytest
 from redis.asyncio import Redis
 
-from sotkalib.redis.client import RedisPool, RedisPoolSettings
+from sotkalib.redis.pool import RedisPool, RedisPoolSettings
 
 
 @pytest.mark.asyncio
