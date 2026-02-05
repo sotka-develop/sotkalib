@@ -1,8 +1,7 @@
-from warnings import warn
-from typing import Generator
-from typing import Literal
-from typing import Sequence
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
+from typing import Literal
+from warnings import warn
 
 
 @contextmanager
@@ -11,7 +10,7 @@ def suppress(
 ) -> Generator[None]:
 	if excts is None:
 		if mode == "exact":
-			warn("mode = 'exact' and excts = None is passed to suppress, bubbling exception up")
+			warn("mode = 'exact' and excts = None is passed to suppress, bubbling exception up", stacklevel=2)
 		exc_ts = ()
 	else:
 		exc_ts = excts
