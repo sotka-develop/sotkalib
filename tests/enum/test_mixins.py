@@ -87,3 +87,45 @@ class TestValuesMixin:
 
 	def test_names_list(self):
 		assert Constants.names_list() == ["FOO", "BAR", "BAZ"]
+
+
+class Status(ValidatorMixin, UppercaseMixin):
+	pending = auto()
+	active = auto()
+	completed = auto()
+
+
+class TestMultipleMixins:
+	def test_uppercase_and_validator_combined(self):
+		"""Test that multiple mixins work together in one enum."""
+		# UppercaseMixin functionality
+		assert Status.pending == "PENDING"
+		assert Status.active == "ACTIVE"
+		assert Status.completed == "COMPLETED"
+		assert isinstance(Status.pending, str)
+
+	def test_validate_with_multiple_mixins(self):
+		"""Test ValidatorMixin functionality works with UppercaseMixin."""
+		assert Status.validate(val="PENDING") is Status.pending
+		assert Status.validate(val=b"ACTIVE") is Status.active
+		assert Status.validate(val=None) is None
+
+	def test_validate_required_with_multiple_mixins(self):
+		"""Test required validation works with multiple mixins."""
+		with pytest.raises(ValueError, match="req=True"):
+			Status.validate(val=None, req=True)
+
+	def test_get_with_multiple_mixins(self):
+		"""Test get method works with multiple mixins."""
+		assert Status.get("COMPLETED") is Status.completed
+		assert Status.get("invalid") is None
+		assert Status.get("invalid", Status.pending) is Status.pending
+
+	def test_in_with_multiple_mixins(self):
+		"""Test in_ method works with multiple mixins."""
+		assert Status.pending.in_(Status.pending, Status.active) is True
+		assert Status.completed.in_(Status.pending, Status.active) is False
+
+	def test_values_with_multiple_mixins(self):
+		"""Test values method works with multiple mixins."""
+		assert list(Status.values()) == [Status.pending, Status.active, Status.completed]
