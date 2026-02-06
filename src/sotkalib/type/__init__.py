@@ -15,4 +15,4 @@ Unset = _UnsetType()
 
 
 def unset(val: object) -> bool:
-	return val is Unset
+	return isinstance(val, _UnsetType)

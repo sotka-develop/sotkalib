@@ -1,8 +1,16 @@
+from collections.abc import AsyncGenerator, Generator
+from contextlib import (
+	AbstractAsyncContextManager,
+	AbstractContextManager,
+	asynccontextmanager,
+	contextmanager,
+)
+
 from pydantic import BaseModel, Field
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from sotkalib.log import get_logger
 
@@ -13,90 +21,166 @@ class ConnectionTimeoutError(Exception):
 
 class DatabaseSettings(BaseModel):
 	uri: str = Field(examples=["postgresql://username:password@localhost:5432/database"])
-	async_driver: str = "asyncpg"
+	async_driver: str | None = "psycopg"
 	echo: bool = False
 	pool_size: int = 10
+	expire_on_commit: bool = False
+	decl_base: DeclarativeBase | None = None
+	explicit_safe: bool = True
 
 	@property
 	def async_uri(self) -> str:
-		return self.uri.replace("postgresql://", "postgresql" + self.async_driver + "://")
+		if self.async_driver is None:
+			raise ValueError("tried to get async uri when driver is not passed")
+		return self.uri.replace("postgresql://", "postgresql+" + self.async_driver + "://")
+
+
+type AsyncSM = AbstractAsyncContextManager[AsyncSession]
+type SyncSM = AbstractContextManager[Session]
 
 
 class Database:
-	_sync_engine: Engine | None
-	_async_engine: AsyncEngine | None
-	_sync_session_factory: sessionmaker = None
-	_async_session_factory: async_sessionmaker = None
-
-	logger = get_logger("sqldb.instance")
+	__slots__ = (
+		"_decl_base",
+		"_explicit_safe",
+		"_sync_engine",
+		"_sync_session_factory",
+		"_has_async",
+		"_async_engine",
+		"_async_session_factory",
+	)
 
 	def __init__(self, settings: DatabaseSettings):
-		self.__async_uri = settings.async_uri
-		self.__sync_uri = settings.uri
-		self.echo = settings.echo
-		self.pool_size = settings.pool_size
+		self._decl_base = settings.decl_base
+
+		self._explicit_safe = settings.explicit_safe
+
+		self._sync_engine = create_engine(
+			url=settings.uri,
+			echo=settings.echo,
+			pool_size=settings.pool_size,
+		)
+		self._sync_session_factory = sessionmaker(
+			bind=self._sync_engine,
+			expire_on_commit=settings.expire_on_commit,
+		)
+
+		self._has_async = settings.async_driver is not None
+
+		if self._has_async:
+			self._async_engine = create_async_engine(
+				url=settings.async_uri,
+				echo=settings.echo,
+				pool_size=settings.pool_size,
+			)
+			self._async_session_factory = async_sessionmaker(
+				bind=self._async_engine,
+				expire_on_commit=settings.expire_on_commit,
+			)
 
 	def __enter__(self):
 		return self
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
-		if self._sync_engine:
-			self._sync_engine.dispose()
-			self.logger.info("closed sync db connection")
+		self._sync_engine.dispose()
+		get_logger("db").info("gracefully closed sync engine")
 
 	async def __aenter__(self):
+		if not self._has_async:
+			raise ValueError("async engine is not initialized for this instance")
 		return self
 
 	async def __aexit__(self, *args):
-		if self._async_engine:
+		await self.aclose()
+
+	def create(self):
+		if self._decl_base is None:
+			raise ValueError("create called when decl_base is None")
+
+		self._decl_base.metadata.create_all(self._sync_engine)
+
+	@property
+	def asession_unsafe(self) -> AsyncSM:
+		if not self._has_async:
+			raise ValueError("async sf is not initialized for this instance")
+		return self._async_session_factory()
+
+	@property
+	def asession_safe(self) -> AsyncSM:
+		if not self._has_async:
+			raise ValueError("async sf is not initialized for this instance")
+		return _asafe(self._async_session_factory)
+
+	@property
+	def asession(self) -> AsyncSM:
+		if self._explicit_safe:
+			return self.asession_safe
+		return self.asession_unsafe
+
+	@property
+	def async_session(self) -> AsyncSM:
+		return self.asession
+
+	@property
+	def session_unsafe(self) -> SyncSM:
+		return self._sync_session_factory()
+
+	@property
+	def session_safe(self) -> SyncSM:
+		return _safe(self._sync_session_factory)
+
+	@property
+	def session(self) -> SyncSM:
+		if self._explicit_safe:
+			return self.session_safe
+		return self.session_unsafe
+
+	async def aclose(self):
+		if self._has_async:
 			await self._async_engine.dispose()
-			self.logger.info("closed async db connection")
+			get_logger("db").debug("disposed of async engine")
 
-	def __async_init(self):
-		self._async_engine = create_async_engine(
-			url=self.__async_uri,
-			echo=self.echo,
-			pool_size=self.pool_size,
-		)
-		self._async_session_factory = async_sessionmaker(bind=self._async_engine, expire_on_commit=False)
-		self.logger.debug(  # noqa: PLE1205
-			"successfully initialized async db connection, engine.status = {} sessionmaker.status = {}",
-			self._async_engine.name is not None,
-			self._async_session_factory is not None,
-		)
+	def close(self):
+		self._sync_engine.dispose()
+		get_logger("db").debug("disposed of sync engine")
 
-	@property
-	def async_session(self) -> async_sessionmaker[AsyncSession]:
-		if self._async_engine is None or self._async_session_factory is None:
-			self.logger.debug("async_sf not found, initializing")
-			self.__async_init()
-			if self._async_engine is None or self._async_session_factory is None:
-				self.logger.error(c := "could not asynchronously connect to pgsql")
-				raise ConnectionTimeoutError(c)
-		self.logger.debug("success getting (asyncmaker)")
-		return self._async_session_factory
 
-	def __sync_init(self):
-		self._sync_engine = create_engine(
-			url=self.__sync_uri,
-			echo=self.echo,
-			pool_size=self.pool_size,
-		)
-		self._sync_session_factory = sessionmaker(bind=self._sync_engine, expire_on_commit=False)
-		self.logger.debug(  # noqa
-			" -> (__sync_init) successfully initialized sync db connection,\n"
-			"\t\t\t\tengine.status = {} sessionmaker.status = {}",
-			self._sync_engine.name is not None,
-			self._sync_session_factory is not None,
-		)
+def _safe(sm: sessionmaker[Session]) -> SyncSM:
+	@contextmanager
+	def _() -> Generator[Session]:
+		session: Session = None
 
-	@property
-	def session(self) -> sessionmaker[Session]:
-		if self._sync_engine is None or self._sync_session_factory is None:
-			self.logger.debug("not found, initializing...")
-			self.__sync_init()
-			if self._sync_engine is None or self._sync_session_factory is None:
-				self.logger.error(c := "could not synchronously connect to pgsql")
-				raise ConnectionTimeoutError(c)
-		self.logger.debug("success getting (syncmaker)")
-		return self._sync_session_factory
+		try:
+			session = sm()
+			yield session
+			session.commit()
+		except:
+			if session is not None:
+				session.rollback()
+			raise
+		finally:
+			if session is not None:
+				session.close()
+
+	return _()
+
+
+def _asafe(asm: async_sessionmaker[AsyncSession]) -> AsyncSM:
+
+	@asynccontextmanager
+	async def _() -> AsyncGenerator[AsyncSession]:
+		session: AsyncSession = None
+
+		try:
+			session = asm()
+			yield session
+			await session.commit()
+		except:
+			if session is not None:
+				await session.rollback()
+			raise
+		finally:
+			if session is not None:
+				await session.close()
+
+	return _()

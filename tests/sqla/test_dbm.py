@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import Column, Integer, String
 
-from sotkalib.sqla.dbm import BasicDBM
+from sotkalib.sqla import BasicDBM, Database
+from sotkalib.sqla.db import DatabaseSettings
 
 
 class User(BasicDBM):
@@ -14,10 +14,10 @@ class User(BasicDBM):
 
 class TestBasicDBM:
 	def test_dict_returns_all_columns(self):
-		engine = create_engine("sqlite:///:memory:")
-		BasicDBM.metadata.create_all(engine)
+		db = Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None))
+		db.create()
 
-		with Session(engine) as session:
+		with db.session() as session:
 			user = User(id=1, name="John", email="john@test.com")
 			session.add(user)
 			session.commit()
@@ -26,11 +26,13 @@ class TestBasicDBM:
 			result = user.dict()
 			assert result == {"id": 1, "name": "John", "email": "john@test.com"}
 
-	def test_dict_with_extra_kwargs(self):
-		engine = create_engine("sqlite:///:memory:")
-		BasicDBM.metadata.create_all(engine)
+		db.close()
 
-		with Session(engine) as session:
+	def test_dict_with_extra_kwargs(self):
+		db = Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None))
+		db.create()
+
+		with db.session() as session:
 			user = User(id=1, name="John", email="john@test.com")
 			session.add(user)
 			session.commit()
@@ -39,3 +41,5 @@ class TestBasicDBM:
 			result = user.dict(extra="value")
 			assert result["extra"] == "value"
 			assert result["name"] == "John"
+
+		db.close()
