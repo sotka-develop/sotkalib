@@ -1,4 +1,11 @@
+"""
+Deprecated: Use ``sotkalib.redis.locker.DistributedLock`` instead.
+
+This module is kept for backward compatibility and will be removed in a future release.
+"""
+
 import asyncio
+import warnings
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from time import time
@@ -8,6 +15,8 @@ from redis.asyncio import Redis
 
 
 class ContextLockError(Exception):
+	"""Deprecated: Use ``sotkalib.redis.locker.ContextLockError`` instead."""
+
 	def __init__(self, *args, can_retry: bool = True):
 		super().__init__(*args)
 		self.can_retry = can_retry
@@ -56,6 +65,9 @@ async def redis_context_lock(
 	"""
 	Acquire a Redis lock atomically using SET NX.
 
+	.. deprecated::
+		Use ``sotkalib.redis.locker.DistributedLock`` instead.
+
 	:param client: async context mng for redis
 	:param key_to_lock: Redis key for the lock
 	:param can_retry_if_lock_catched: Whether task should retry if lock is taken (only used if wait_for_lock=False)
@@ -65,6 +77,12 @@ async def redis_context_lock(
 	:param args_to_lock_exception: Args to pass to ContextLockError
 
 	"""
+	warnings.warn(
+		"redis_context_lock is deprecated, use sotkalib.redis.locker.DistributedLock instead",
+		DeprecationWarning,
+		stacklevel=2,
+	)
+
 	if args_to_lock_exception is None:
 		args_to_lock_exception = []
 

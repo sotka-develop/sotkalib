@@ -51,9 +51,6 @@ class LRUSettings(BaseModel):
 	keyfunc: SkipValidation[keyfunc] = base_keyfunc
 
 
-LockerSettings = LRUSettings
-
-
 class RedisLRU:
 	__slots__ = ("_redis_factory", "_version", "_ttl", "_serializer", "_keyfunc", "_is_copy", "__pickle_allowed")
 
@@ -71,30 +68,38 @@ class RedisLRU:
 
 	def ttl(self, ttl: int) -> Self:
 		if not self._is_copy:
-			self = copy(self)  # noqa: PLW0642
-			self._is_copy = True
+			new_self = copy(self)
+			new_self._is_copy = True
+			new_self._ttl = ttl
+			return new_self
 		self._ttl = ttl
 		return self
 
 	def version(self, ver: int) -> Self:
 		if not self._is_copy:
-			self = copy(self)  # noqa: PLW0642
-			self._is_copy = True
+			new_self = copy(self)
+			new_self._is_copy = True
+			new_self._version = ver
+			return new_self
 		self._version = ver
 		return self
 
 	def serializer(self, szr: Serializer) -> Self:
 		if not self._is_copy:
-			self = copy(self)  # noqa: PLW0642
-			self._is_copy = True
+			new_self = copy(self)
+			new_self._is_copy = True
+			new_self._serializer = szr
+			return new_self
 
 		self._serializer = szr
 		return self
 
 	def keyfunc(self, kf: keyfunc) -> Self:
 		if not self._is_copy:
-			self = copy(self)  # noqa: PLW0642
-			self._is_copy = True
+			new_self = copy(self)
+			new_self._is_copy = True
+			new_self._keyfunc = kf
+			return new_self
 
 		self._keyfunc = kf
 		return self

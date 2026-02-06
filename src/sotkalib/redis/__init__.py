@@ -1,3 +1,3 @@
-from . import lock, lru, pool
+from . import lock, locker, lru, pool
 
-__all__ = ["lock", "pool", "lru"]
+__all__ = ["lock", "pool", "lru", "locker"]

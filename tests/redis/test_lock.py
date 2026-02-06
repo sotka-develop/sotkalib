@@ -3,7 +3,9 @@ import asyncio
 import pytest
 from redis.asyncio import Redis
 
-from sotkalib.redis.lock import ContextLockError, redis_context_lock, __wait_till_lock_free
+from sotkalib.redis.lock import ContextLockError, __wait_till_lock_free, redis_context_lock
+
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
 
 @pytest.mark.asyncio
@@ -16,6 +18,15 @@ async def test_context_lock_acquire_and_release(redis_client: Redis):
 
 	val = await redis_client.get(key)
 	assert val is None
+
+
+@pytest.mark.asyncio
+async def test_context_lock_emits_deprecation_warning(redis_client: Redis):
+	key = "test:lock:deprecation"
+
+	with pytest.warns(DeprecationWarning, match="redis_context_lock is deprecated"):
+		async with redis_context_lock(redis_client, key):
+			pass
 
 
 @pytest.mark.asyncio
@@ -128,7 +139,7 @@ async def test_concurrent_lock_atomicity(redis_client: Redis):
 	rejected_count = 0
 	barrier = asyncio.Barrier(5)
 
-	async def worker(worker_id: int):
+	async def worker(worker_id: int):  # noqa: ARG001
 		nonlocal acquired_count, rejected_count
 		await barrier.wait()
 		result = await redis_client.set(key, "acquired", nx=True, ex=5)
