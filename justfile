@@ -11,5 +11,5 @@ lint:
 	uv run ruff check --fix-only .
 	uv run ruff format .
 
-test:
-	uv run pytest tests/ -v --tb=short 2>&1 | tail -60
+test DIR="tests/":
+	uv run pytest {{DIR}} -v --tb=short 2>&1 | tail -60

@@ -46,7 +46,6 @@ def test_dl_settings_defaults():
 	assert settings.wait is False
 	assert settings.wait_timeout == 60.0
 	assert settings.retry_if_acquired is False
-	assert settings.acquire_timeout == 5
 	assert settings.spin_attempts == 0
 	assert settings.exc_args == ()
 
@@ -77,7 +76,7 @@ async def test_acquire_and_release(redis_url: str, redis_client: Redis):
 	lock = DistributedLock(pool)
 	key = "test:locker:basic"
 
-	async with lock.acq(key):
+	async with lock.acquire(key):
 		val = await redis_client.get(key)
 		assert val == "acquired"
 
@@ -94,7 +93,7 @@ async def test_raises_when_already_acquired(redis_url: str, redis_client: Redis)
 	await redis_client.set(key, "acquired", ex=10)
 
 	with pytest.raises(ContextLockError):
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 
 
@@ -108,17 +107,16 @@ async def test_if_acquired_retry_flag(redis_url: str, redis_client: Redis):
 
 	await redis_client.set(key, "acquired", ex=10)
 
-	lock_no_retry = DistributedLock(pool).if_acquired(retry=False)
+	dlock = DistributedLock(pool)
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock_no_retry.acq(key):
+		async with dlock.acquire(key):
 			pass
 	assert exc_info.value.can_retry is False
 
 	await redis_client.set(key, "acquired", ex=10)
 
-	lock_retry = DistributedLock(pool).if_acquired(retry=True)
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock_retry.acq(key):
+		async with dlock.if_taken(retry=True).acquire(key):
 			pass
 	assert exc_info.value.can_retry is True
 
@@ -132,7 +130,7 @@ async def test_spin_acquires_free_lock(redis_url: str, redis_client: Redis):
 	lock = DistributedLock(pool).spin(attempts=3)
 	key = "test:locker:spin_free"
 
-	async with lock.acq(key):
+	async with lock.acquire(key):
 		val = await redis_client.get(key)
 		assert val == "acquired"
 
@@ -149,7 +147,7 @@ async def test_spin_fails_when_held(redis_url: str, redis_client: Redis):
 	await redis_client.set(key, "acquired", ex=30)
 
 	with pytest.raises(ContextLockError):
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 
 	val = await redis_client.get(key)
@@ -165,7 +163,7 @@ async def test_spin_then_wait_fallback(redis_url: str, redis_client: Redis):
 
 	lock = DistributedLock(pool).spin(attempts=3).wait(backoff=plain_delay(0.2), timeout=5.0)
 
-	async with lock.acq(key):
+	async with lock.acquire(key):
 		val = await redis_client.get(key)
 		assert val == "acquired"
 
@@ -183,7 +181,7 @@ async def test_spin_then_wait_timeout(redis_url: str, redis_client: Redis):
 	lock = DistributedLock(pool).spin(attempts=3).wait(backoff=plain_delay(0.05), timeout=0.3)
 
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 	assert exc_info.value.can_retry is False
 
@@ -210,7 +208,7 @@ async def test_does_not_delete_others_lock_on_acquire_failure(redis_url: str, re
 	await redis_client.set(key, "acquired", ex=30)
 
 	with pytest.raises(ContextLockError):
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 
 	val = await redis_client.get(key)
@@ -227,10 +225,10 @@ def test_chained_calls_reuse_same_copy(redis_url: str):
 	first = original.wait(backoff=plain_delay(0.1), timeout=5.0)
 	assert first is not original
 
-	second = first.if_acquired(retry=True)
+	second = first.if_taken(retry=True)
 	assert second is first
 
-	third = first.acquire(timeout=20)
+	third = first.spin(attempts=2)
 	assert third is first
 
 
@@ -246,7 +244,7 @@ async def test_waits_for_lock_release(redis_url: str, redis_client: Redis):
 
 	lock = DistributedLock(pool).wait(backoff=plain_delay(0.1), timeout=5.0)
 
-	async with lock.acq(key):
+	async with lock.acquire(key):
 		val = await redis_client.get(key)
 		assert val == "acquired"
 
@@ -261,7 +259,7 @@ async def test_wait_timeout(redis_url: str, redis_client: Redis):
 	lock = DistributedLock(pool).wait(backoff=plain_delay(0.05), timeout=0.3)
 
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 	assert exc_info.value.can_retry is False
 
@@ -305,7 +303,7 @@ async def test_exc_args(redis_url: str, redis_client: Redis):
 	await redis_client.set(key, "acquired", ex=10)
 
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock.acq(key):
+		async with lock.acquire(key):
 			pass
 
 	assert "extra1" in exc_info.value.args
@@ -324,7 +322,7 @@ async def test_strable_key(redis_url: str, redis_client: Redis):
 		def __str__(self) -> str:
 			return "test:locker:strable"
 
-	async with lock.acq(MyKey()):
+	async with lock.acquire(MyKey()):
 		val = await redis_client.get("test:locker:strable")
 		assert val == "acquired"
 
@@ -344,28 +342,20 @@ def test_builder_methods_return_copies(redis_url: str):
 	assert modified_wait._wait is True
 	assert original._wait is False
 
-	modified_retry = original.if_acquired(retry=True)
+	modified_retry = original.if_taken(retry=True)
 	assert modified_retry is not original
 	assert modified_retry._retry_if_acquired is True
 	assert original._retry_if_acquired is False
-
-	modified_timeout = original.acquire(timeout=30)
-	assert modified_timeout is not original
-	assert modified_timeout._acquire_timeout == 30
-	assert original._acquire_timeout == 5
 
 
 def test_chained_modifications(redis_url: str):
 	pool = RedisPool(RedisPoolSettings(uri=redis_url, db_num=0))
 
-	lock = (
-		DistributedLock(pool).wait(backoff=plain_delay(0.5), timeout=10.0).if_acquired(retry=True).acquire(timeout=30)
-	)
+	lock = DistributedLock(pool).wait(backoff=plain_delay(0.5), timeout=10.0).if_taken(retry=True)
 
 	assert lock._wait is True
 	assert lock._wait_timeout == 10.0
 	assert lock._retry_if_acquired is True
-	assert lock._acquire_timeout == 30
 
 
 # ── acquire timeout (TTL on redis key) ────────────────────────────
@@ -374,10 +364,10 @@ def test_chained_modifications(redis_url: str):
 @pytest.mark.asyncio
 async def test_acquire_timeout_sets_ttl(redis_url: str, redis_client: Redis):
 	pool = RedisPool(RedisPoolSettings(uri=redis_url, db_num=0))
-	lock = DistributedLock(pool).acquire(timeout=10)
+	lock = DistributedLock(pool)
 	key = "test:locker:ttl"
 
-	async with lock.acq(key):
+	async with lock.acquire(key, ttl=10):
 		ttl = await redis_client.ttl(key)
 		assert 0 < ttl <= 10
 
@@ -391,9 +381,9 @@ async def test_sequential_contention(redis_url: str):
 	lock = DistributedLock(pool)
 	key = "test:locker:sequential"
 
-	async with lock.acq(key):
+	async with lock.acquire(key):
 		with pytest.raises(ContextLockError):
-			async with lock.acq(key):
+			async with lock.acquire(key):
 				pass
 
 
@@ -413,7 +403,7 @@ async def test_concurrent_atomicity(redis_url: str):
 		nonlocal acquired_count, rejected_count
 		await barrier.wait()
 		try:
-			async with lock.acq(key):
+			async with lock.acquire(key):
 				acquired_count += 1
 				await asyncio.sleep(0.5)
 		except ContextLockError:
@@ -435,13 +425,12 @@ async def test_with_custom_settings(redis_url: str, redis_client: Redis):
 	settings = DLSettings(
 		wait=False,
 		retry_if_acquired=True,
-		acquire_timeout=10,
 	)
 	lock = DistributedLock(pool, settings)
 	key = "test:locker:custom_settings"
 
 	await redis_client.set(key, "acquired", ex=10)
 	with pytest.raises(ContextLockError) as exc_info:
-		async with lock.acq(key):
+		async with lock.acquire(key, ttl=10):
 			pass
 	assert exc_info.value.can_retry is True

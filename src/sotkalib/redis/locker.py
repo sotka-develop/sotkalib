@@ -52,7 +52,6 @@ class DLSettings(BaseModel):
 	spin_attempts: int = 0
 
 	retry_if_acquired: bool = False
-	acquire_timeout: int = 5
 	exc_args: SkipValidation[Sequence[Any]] = ()
 
 
@@ -71,7 +70,6 @@ class DistributedLock:
 		"_wait_timeout",
 		"_spin_attempts",
 		"_retry_if_acquired",
-		"_acquire_timeout",
 		"_exc_args",
 	)
 
@@ -84,7 +82,6 @@ class DistributedLock:
 		self._wait_backoff: backoff = settings.wait_delay_func
 		self._wait_timeout = settings.wait_timeout
 		self._spin_attempts = settings.spin_attempts
-		self._acquire_timeout = settings.acquire_timeout
 		self._retry_if_acquired = settings.retry_if_acquired
 		self._exc_args: Sequence[Any] = settings.exc_args
 
@@ -125,6 +122,9 @@ class DistributedLock:
 		return self
 
 	def if_acquired(self, *, retry: bool) -> Self:
+		return self.if_taken(retry=retry)
+
+	def if_taken(self, *, retry: bool) -> Self:
 		if not self._is_copy:
 			new = copy(self)
 			new._is_copy = True
@@ -134,15 +134,15 @@ class DistributedLock:
 		self._retry_if_acquired = retry
 		return self
 
-	def acquire(self, *, timeout: int | None) -> Self:
-		if not self._is_copy:
-			new = copy(self)
-			new._is_copy = True
-			new._acquire_timeout = timeout
-			return new
+	# def acquire_(self, *, timeout: int = 5) -> Self:
+	# 	if not self._is_copy:
+	# 		new = copy(self)
+	# 		new._is_copy = True
+	# 		new._acquire_timeout = timeout
+	# 		return new
 
-		self._acquire_timeout = timeout
-		return self
+	# 	self._acquire_timeout = timeout
+	# 	return self
 
 	def exc(self, *args: Any) -> Self:
 		if not self._is_copy:
@@ -154,21 +154,21 @@ class DistributedLock:
 		self._exc_args = args
 		return self
 
-	async def _try_acquire(self, rc: Redis, key: str) -> bool:
-		return bool(await rc.set(key, "acquired", nx=True, ex=self._acquire_timeout))
+	async def _try_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
+		return bool(await rc.set(key, "acquired", nx=True, ex=ttl))
 
-	async def _spin_acquire(self, rc: Redis, key: str) -> bool:
+	async def _spin_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
 		for _ in range(self._spin_attempts):
-			if await self._try_acquire(rc, key):
+			if await self._try_acquire(rc, key, ttl):
 				return True
 			await asyncio.sleep(0)
 		return False
 
-	async def _wait_acquire(self, rc: Redis, key: str) -> bool:
+	async def _wait_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
 		start = time()
 		attempt = 1
 		while True:
-			if await self._try_acquire(rc, key):
+			if await self._try_acquire(rc, key, ttl):
 				return True
 
 			if (time() - start) > self._wait_timeout:
@@ -177,8 +177,11 @@ class DistributedLock:
 			await asyncio.sleep(self._wait_backoff(attempt))
 			attempt += 1
 
+	def acq(self, key: strable, timeout: int = 5) -> AbstractAsyncContextManager[None]:
+		return self.acquire(key, ttl=timeout)
+
 	@asynccontextmanager
-	async def acq(self, key: strable) -> AsyncGenerator[None]:
+	async def acquire(self, key: strable, *, ttl: int = 5) -> AsyncGenerator[None]:
 		key = str(key)
 		acquired = False
 
@@ -186,15 +189,15 @@ class DistributedLock:
 			async with self._redis_factory as rc:
 				# ph 1: spin — rapid attempts, no delay
 				if self._spin_attempts > 0:
-					acquired = await self._spin_acquire(rc, key)
+					acquired = await self._spin_acquire(rc, key, ttl)
 
 				# ph 2: single cmpswap attempt (no spin, no wait)
 				if not acquired and not self._wait:
-					acquired = await self._try_acquire(rc, key)
+					acquired = await self._try_acquire(rc, key, ttl)
 
 				# ph 3: wait & delay
 				if not acquired and self._wait:
-					acquired = await self._wait_acquire(rc, key)
+					acquired = await self._wait_acquire(rc, key, ttl)
 
 				if not acquired:
 					if self._wait:

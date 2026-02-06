@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.1.3rc1"
+version = "0.1.3rc2"
 description = ""
 authors = [
     { email = "me@pyrorhythm.dev", name = "alexey" }
@@ -81,7 +81,7 @@ select = [
     "PL",
     "PERF"
 ]
-ignore = ["PERF401", "G004", "UP037"]
+ignore = ["PERF401", "G004", "UP037", "ASYNC109"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
