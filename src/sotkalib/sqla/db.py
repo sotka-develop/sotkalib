@@ -6,7 +6,7 @@ from contextlib import (
 	contextmanager,
 )
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -20,6 +20,8 @@ class ConnectionTimeoutError(Exception):
 
 
 class DatabaseSettings(BaseModel):
+	model_config = ConfigDict(arbitrary_types_allowed=True)
+
 	uri: str = Field(examples=["postgresql://username:password@localhost:5432/database"])
 	async_driver: str | None = "psycopg"
 	echo: bool = False
