@@ -14,6 +14,7 @@ class TestSettingsField:
 	def test_frozen(self):
 		f = SettingsField(default="x")
 		with pytest.raises(AttributeError):
+			# pyrefly: ignore [read-only]
 			f.default = "y"
 
 

@@ -112,6 +112,7 @@ class TestRequestContext:
 		ctx = RequestContext(method="GET", url="https://example.com")
 		assert ctx.is_retry is False
 		ctx.attempt = 1
+		# pyrefly: ignore [unnecessary-comparison]
 		assert ctx.is_retry is True
 
 	def test_status_property(self):
@@ -151,6 +152,7 @@ class TestClientSession:
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
 		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/ok")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data == {"status": "ok"}
 
@@ -159,6 +161,7 @@ class TestClientSession:
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
 		async with HTTPSession(config) as session:
 			resp = await session.post(f"{base_url}/ok")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data == {"status": "ok"}
 
@@ -167,6 +170,7 @@ class TestClientSession:
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
 		async with HTTPSession(config) as session:
 			resp = await session.put(f"{base_url}/ok")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data == {"status": "ok"}
 
@@ -175,6 +179,7 @@ class TestClientSession:
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
 		async with HTTPSession(config) as session:
 			resp = await session.delete(f"{base_url}/ok")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data == {"status": "ok"}
 
@@ -183,6 +188,7 @@ class TestClientSession:
 		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
 		async with HTTPSession(config) as session:
 			resp = await session.patch(f"{base_url}/ok")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data == {"status": "ok"}
 
@@ -212,6 +218,7 @@ class TestClientSession:
 		)
 		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/headers")
+			# pyrefly: ignore [missing-attribute]
 			data = await resp.json()
 			assert data["User-Agent"] == "TestBot/1.0"
 

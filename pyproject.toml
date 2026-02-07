@@ -2,49 +2,49 @@
 name = "sotkalib"
 version = "0.1.3.post3"
 description = ""
-authors = [
-    { email = "me@pyrorhythm.dev", name = "alexey" }
-]
 readme = "README.md"
 requires-python = ">=3.13"
+authors = [{ name = "alexey", email = "me@pyrorhythm.dev" }]
 dependencies = [
-    "aiohttp>=3.13.0",
-    "dotenv>=0.9.9",
-    "loguru>=0.7.3",
-    "orjson>=3.11.7",
-    "pydantic>=2.12.0",
-    "redis>=6.4.0,<8.0.0",
-    "sqlalchemy[asyncio]>=2.0.0",
+  "aiohttp>=3.13.0",
+  "dotenv>=0.9.9",
+  "loguru>=0.7.3",
+  "orjson>=3.11.7",
+  "pydantic>=2.12.0",
+  "redis>=6.4.0,<8.0.0",
+  "sqlalchemy[asyncio]>=2.0.0",
 ]
 
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-publish-url = "https://upload.pypi.org/legacy/"
-explicit = true
-
-[[tool.uv.index]]
-name = "testpypi"
-url = "https://test.pypi.org/simple/"
-publish-url = "https://test.pypi.org/legacy/"
-explicit = true
+[dependency-groups]
+dev = [
+  "mypy>=1.19.0",
+  "pyrefly>=0.45.2",
+  "pytest>=9.0.2",
+  "pytest-asyncio>=1.3.0",
+  "ruff>=0.14.9",
+  "snakeviz>=2.2.2",
+  "testcontainers>=4.14.1",
+  "yappi>=1.6.0,<2.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"
 
-[dependency-groups]
-dev = [
-    "mypy>=1.19.0",
-    "pyrefly>=0.45.2",
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-    "ruff>=0.14.9",
-    "snakeviz>=2.2.2",
-    "testcontainers>=4.14.1",
-    "yappi>=1.6.0,<2.0",
-]
+[tool.pyrefly]
+python_version = "3.13.11"
+search-path = ["src"]
+project-includes = ["src"]
+project-excludes = ["**/.[!/.]*", "**/tests"]
+site-package-path = [".venv/lib/python3.13/site-packages"]
+python-interpreter-path = ".venv/bin/python"
+untyped-def-behavior = "check-and-infer-return-any"
+ignore-errors-in-generated-code = true
+disable-search-path-heuristics = true
+
+[tool.pyrefly.errors]
+bad-assignment = false
+invalid-argument = false
 
 [tool.ruff]
 line-length = 120
@@ -61,42 +61,42 @@ indent-style = "tab"
 fixable = ["ALL"]
 unfixable = []
 select = [
-    "E",
-    "F",
-    "I",
-    "N",
-    "UP",
-    "ASYNC",
-    "S",
-    "B",
-    "A",
-    "C4",
-    "G",
-    "PIE",
-    "Q",
-    "SIM",
-    "ARG",
-    "PTH",
-    "TD",
-    "PL",
-    "PERF"
+  "E",
+  "F",
+  "I",
+  "N",
+  "UP",
+  "ASYNC",
+  "S",
+  "B",
+  "A",
+  "C4",
+  "G",
+  "PIE",
+  "Q",
+  "SIM",
+  "ARG",
+  "PTH",
+  "TD",
+  "PL",
+  "PERF"
 ]
 ignore = ["PERF401", "G004", "UP037", "ASYNC109"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "common",
-    "db",
-    "libs",
-    "handlers",
-    "backend_common",
-    "actions"
+  "common",
+  "db",
+  "libs",
+  "handlers",
+  "backend_common",
+  "actions"
 ]
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = [
-    "pydantic.root_validator",
-    "pydantic.validator",
+  "pydantic.root_validator",
+  "pydantic.validator",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -107,18 +107,14 @@ classmethod-decorators = [
 [tool.ruff.lint.pylint]
 max-args = 9
 
-[tool.pyrefly]
-python_version = "3.14.0"
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+publish-url = "https://upload.pypi.org/legacy/"
+explicit = true
 
-search-path = ["src"]
-project-includes = ["src"]
-project-excludes = ["**/.[!/.]*", "**/tests"]
-site-package-path = [".venv/lib/python3.14/site-packages"]
-python-interpreter-path = ".venv/bin/python"
-untyped-def-behavior = "check-and-infer-return-any"
-ignore-errors-in-generated-code = true
-disable-search-path-heuristics = true
-
-[tool.pyrefly.errors]
-bad-assignment = false
-invalid-argument = false
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true

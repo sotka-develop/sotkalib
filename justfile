@@ -11,10 +11,8 @@ lint PATH=".":
 	uv run ruff check --fix-only "{{PATH}}"
 	uv run ruff format "{{PATH}}"
 
-[arg('q', short='q', long='quiet', value='-q')]
-[arg('tb', long='tb')]
-test q='' tb='short' DIR="tests/" *FLAGS:
-	uv run pytest {{FLAGS}} "{{DIR}}" {{q}} --tb={{tb}}
+typecheck PATH=".":
+	uv run pyrefly check "{{PATH}}"
 
 push-commit MSG: sync lint (test '-q' 'no')
 	git add .
@@ -28,6 +26,13 @@ release-git SEMVER:
 	git add .
 	git commit -m "release: {{SEMVER}}"
 	git tag -a "{{SEMVER}}" -m "release: {{SEMVER}}"
-	git push --tags
+	git push; git push origin "{{SEMVER}}"
 
 release SEMVER: sync lint (test '-q' 'no') (bump SEMVER) (release-git SEMVER)
+
+# let it be down here, it breaks syntax highlighting in Zed :D
+
+[arg('q', short='q', long='quiet', value='-q')]
+[arg('tb', long='tb')]
+test q='' tb='short' DIR="tests/" *FLAGS:
+	uv run pytest {{FLAGS}} "{{DIR}}" {{q}} --tb={{tb}}

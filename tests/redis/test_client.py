@@ -30,6 +30,7 @@ async def test_redis_pool_custom_settings(redis_url: str):
 		decode_responses=True,
 	)
 	async with RedisPool(settings) as client:
+		# pyrefly: ignore [not-async]
 		await client.ping()
 
 

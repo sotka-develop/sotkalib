@@ -48,8 +48,11 @@ def generate_test_data(depth: int = 5, branching: int = 3) -> Any:
 			pass
 
 		obj = ComplexObject()
+		# pyrefly: ignore [missing-attribute]
 		obj.attr1 = generate_test_data(depth - 1, branching)
+		# pyrefly: ignore [missing-attribute]
 		obj.attr2 = generate_test_data(depth - 1, branching)
+		# pyrefly: ignore [missing-attribute]
 		obj.nested = generate_test_data(depth - 1, branching)
 
 		return obj
@@ -59,7 +62,9 @@ def generate_test_data(depth: int = 5, branching: int = 3) -> Any:
 			pass
 
 		obj = Circular()
+		# pyrefly: ignore [missing-attribute]
 		obj.self = obj
+		# pyrefly: ignore [missing-attribute]
 		obj.data = generate_test_data(depth - 1, branching)
 
 		return obj
