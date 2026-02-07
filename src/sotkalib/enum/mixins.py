@@ -62,7 +62,7 @@ class ValidatorMixin(StrEnum):
 class ValuesMixin(StrEnum):
 	@classmethod
 	def values_list(cls) -> list[str]:
-		return list(cls.values_set())
+		return [cls[k] for k in cls.names_list()]
 
 	@classmethod
 	def values_set(cls) -> set[str]:
@@ -70,8 +70,8 @@ class ValuesMixin(StrEnum):
 
 	@classmethod
 	def names_list(cls) -> list[str]:
-		return list(cls.names_set())
+		return [k.name for k in cls if not k.startswith("_") and isinstance(k.value, str)]
 
 	@classmethod
 	def names_set(cls) -> set[str]:
-		return {k for k in cls if not k.startswith("_") and isinstance(cls[k], str)}
+		return {k.name for k in cls if not k.startswith("_") and isinstance(k.value, str)}

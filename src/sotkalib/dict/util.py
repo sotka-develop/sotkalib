@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from sotkalib.type import _UnsetType
+from sotkalib.type import unset as unset_func
 
 
 class _dict[K, V](dict[K, V]):  # noqa: N801
@@ -22,7 +22,7 @@ class _dict[K, V](dict[K, V]):  # noqa: N801
 
 
 def _valid_keys[K, V](d: dict[K, V]) -> set[K]:
-	return {k for k, v in d.items() if not isinstance(v, _UnsetType)}
+	return {k for k, v in d.items() if not unset_func(v)}
 
 
 def _filter[K, V](d: dict[K, V], f: Callable[[K, V], bool]) -> _dict[K, V]:

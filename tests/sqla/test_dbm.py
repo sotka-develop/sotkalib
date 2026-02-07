@@ -1,7 +1,10 @@
 from sqlalchemy import Column, Integer, String
 
-from sotkalib.sqla import BasicDBM, Database
+from sotkalib.sqla import BasicDBM as BasicDBM_
+from sotkalib.sqla import Database
 from sotkalib.sqla.db import DatabaseSettings
+
+BasicDBM = BasicDBM_
 
 
 class User(BasicDBM):
@@ -14,10 +17,10 @@ class User(BasicDBM):
 
 class TestBasicDBM:
 	def test_dict_returns_all_columns(self):
-		with Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None)) as db:
+		with Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None, decl_base=BasicDBM)) as db:
 			db.create()
 
-			with db.session() as session:
+			with db.session as session:
 				user = User(id=1, name="John", email="john@test.com")
 				session.add(user)
 				session.commit()
@@ -27,10 +30,10 @@ class TestBasicDBM:
 				assert result == {"id": 1, "name": "John", "email": "john@test.com"}
 
 	def test_dict_with_extra_kwargs(self):
-		with Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None)) as db:
+		with Database(DatabaseSettings(uri="sqlite:///:memory:", async_driver=None, decl_base=BasicDBM)) as db:
 			db.create()
 
-			with db.session() as session:
+			with db.session as session:
 				user = User(id=1, name="John", email="john@test.com")
 				session.add(user)
 				session.commit()

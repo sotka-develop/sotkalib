@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from sotkalib.time import now, utcnow
 
@@ -19,7 +19,7 @@ class TestNow:
 		assert isinstance(result, datetime)
 
 	def test_with_timezone(self):
-		tz = timezone.utc
+		tz = UTC
 		result = now(tz)
 		assert result.tzinfo is tz
 

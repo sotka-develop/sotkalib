@@ -5,6 +5,7 @@ from contextlib import (
 	asynccontextmanager,
 	contextmanager,
 )
+from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
@@ -27,7 +28,7 @@ class DatabaseSettings(BaseModel):
 	echo: bool = False
 	pool_size: int = 10
 	expire_on_commit: bool = False
-	decl_base: DeclarativeBase | None = None
+	decl_base: type[DeclarativeBase] | None = None
 	explicit_safe: bool = True
 
 	@property
@@ -80,14 +81,14 @@ class Database:
 				expire_on_commit=settings.expire_on_commit,
 			)
 
-	def __enter__(self):
+	def __enter__(self) -> Self:
 		return self
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		self._sync_engine.dispose()
 		get_logger("db").info("gracefully closed sync engine")
 
-	async def __aenter__(self):
+	async def __aenter__(self) -> Self:
 		if not self._has_async:
 			raise ValueError("async engine is not initialized for this instance")
 		return self
