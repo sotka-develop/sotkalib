@@ -1,13 +1,30 @@
 import asyncio
+import os
 from collections.abc import AsyncGenerator, Sequence
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 from copy import copy
 from time import time
 from typing import Any, Protocol, Self, runtime_checkable
 
-from pydantic import ConfigDict, SkipValidation
+from pydantic import ConfigDict, Field, SkipValidation
 from pydantic.main import BaseModel
 from redis.asyncio import Redis
+
+_RELEASE_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("del", KEYS[1])
+else
+	return 0
+end
+"""
+
+_EXTEND_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("expire", KEYS[1], ARGV[2])
+else
+	return 0
+end
+"""
 
 
 @runtime_checkable
@@ -53,6 +70,8 @@ class DLSettings(BaseModel):
 
 	retry_if_acquired: bool = False
 	exc_args: SkipValidation[Sequence[Any]] = ()
+	extend_ttl: bool = True
+	watchdog_factor: float = Field(ge=1, default=3)
 
 
 class ContextLockError(Exception):
@@ -71,6 +90,8 @@ class DistributedLock:
 		"_spin_attempts",
 		"_retry_if_acquired",
 		"_exc_args",
+		"_extend_ttl",
+		"_watchdog_factor",
 	)
 
 	def __init__(self, redis_factory: AbstractAsyncContextManager[Redis], settings: DLSettings | None = None):
@@ -84,6 +105,8 @@ class DistributedLock:
 		self._spin_attempts = settings.spin_attempts
 		self._retry_if_acquired = settings.retry_if_acquired
 		self._exc_args: Sequence[Any] = settings.exc_args
+		self._extend_ttl = settings.extend_ttl
+		self._watchdog_factor = settings.watchdog_factor
 
 		self._is_copy = False
 
@@ -134,15 +157,17 @@ class DistributedLock:
 		self._retry_if_acquired = retry
 		return self
 
-	# def acquire_(self, *, timeout: int = 5) -> Self:
-	# 	if not self._is_copy:
-	# 		new = copy(self)
-	# 		new._is_copy = True
-	# 		new._acquire_timeout = timeout
-	# 		return new
+	def extend(self, *, enabled: bool = True, watchdog_factor: float = 3.0) -> Self:
+		if not self._is_copy:
+			new = copy(self)
+			new._is_copy = True
+			new._extend_ttl = enabled
+			new._watchdog_factor = watchdog_factor
+			return new
 
-	# 	self._acquire_timeout = timeout
-	# 	return self
+		self._extend_ttl = enabled
+		self._watchdog_factor = watchdog_factor
+		return self
 
 	def exc(self, *args: Any) -> Self:
 		if not self._is_copy:
@@ -154,21 +179,21 @@ class DistributedLock:
 		self._exc_args = args
 		return self
 
-	async def _try_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
-		return bool(await rc.set(key, "acquired", nx=True, ex=ttl))
+	async def _try_acquire(self, rc: Redis, key: str, ttl: int, token: str) -> bool:
+		return bool(await rc.set(key, token, nx=True, ex=ttl))
 
-	async def _spin_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
+	async def _spin_acquire(self, rc: Redis, key: str, ttl: int, token: str) -> bool:
 		for _ in range(self._spin_attempts):
-			if await self._try_acquire(rc, key, ttl):
+			if await self._try_acquire(rc, key, ttl, token):
 				return True
 			await asyncio.sleep(0)
 		return False
 
-	async def _wait_acquire(self, rc: Redis, key: str, ttl: int) -> bool:
+	async def _wait_acquire(self, rc: Redis, key: str, ttl: int, token: str) -> bool:
 		start = time()
 		attempt = 1
 		while True:
-			if await self._try_acquire(rc, key, ttl):
+			if await self._try_acquire(rc, key, ttl, token):
 				return True
 
 			if (time() - start) > self._wait_timeout:
@@ -183,21 +208,23 @@ class DistributedLock:
 	@asynccontextmanager
 	async def acquire(self, key: strable, *, ttl: int = 5) -> AsyncGenerator[None]:
 		key = str(key)
+		token = os.urandom(16).hex()
 		acquired = False
+		watchdog: asyncio.Task[None] | None = None
 
 		try:
 			async with self._redis_factory as rc:
 				# ph 1: spin — rapid attempts, no delay
 				if self._spin_attempts > 0:
-					acquired = await self._spin_acquire(rc, key, ttl)
+					acquired = await self._spin_acquire(rc, key, ttl, token)
 
 				# ph 2: single cmpswap attempt (no spin, no wait)
 				if not acquired and not self._wait:
-					acquired = await self._try_acquire(rc, key, ttl)
+					acquired = await self._try_acquire(rc, key, ttl, token)
 
 				# ph 3: wait & delay
 				if not acquired and self._wait:
-					acquired = await self._wait_acquire(rc, key, ttl)
+					acquired = await self._wait_acquire(rc, key, ttl, token)
 
 				if not acquired:
 					if self._wait:
@@ -211,8 +238,30 @@ class DistributedLock:
 						*self._exc_args,
 						can_retry=self._retry_if_acquired,
 					)
+
+			# start watchdog to extend TTL while lock is held
+			if acquired and self._extend_ttl:
+				watchdog = asyncio.create_task(self._watchdog(key, token, ttl))
+
 			yield
 		finally:
+			if watchdog is not None:
+				watchdog.cancel()
+				with suppress(asyncio.CancelledError):
+					await watchdog
+
 			if acquired:
 				async with self._redis_factory as rc:
-					await rc.delete(key)
+					await rc.eval(_RELEASE_LUA, 1, key, token)  # type: ignore[arg-type]
+
+	async def _watchdog(self, key: str, token: str, ttl: int) -> None:
+		interval = ttl / self._watchdog_factor
+		try:
+			while True:
+				await asyncio.sleep(interval)
+				async with self._redis_factory as rc:
+					result = await rc.eval(_EXTEND_LUA, 1, key, token, ttl)  # type: ignore[arg-type]
+					if not result:
+						return
+		except asyncio.CancelledError:
+			return
