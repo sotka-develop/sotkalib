@@ -4,6 +4,9 @@ default:
 sync:
 	uv sync --all-extras --dev --refresh
 
+publish INDEX="pypi":
+	uv publish --index="{{INDEX}}" --trusted-publishing=always
+
 build:
 	uv build -o dist/ --no-sources
 
