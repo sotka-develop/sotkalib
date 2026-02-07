@@ -19,6 +19,7 @@ test q='' tb='short' DIR="tests/" *FLAGS:
 push-commit MSG: sync lint (test '-q' 'no')
 	git add .
 	git commit -m "{{MSG}}"
+	git push
 
 bump SEMVER:
 	uv version "{{SEMVER}}"
