@@ -1,13 +1,8 @@
-set positional-arguments := true
-
 default:
   just --list
 
 sync:
 	uv sync --all-extras --dev --refresh
-
-publish INDEX="pypi":
-	uv publish --index="{{INDEX}}" --trusted-publishing=always
 
 build:
 	uv build -o dist/ --no-sources
@@ -20,6 +15,10 @@ lint PATH=".":
 [arg('tb', long='tb')]
 test q='' tb='short' DIR="tests/" *FLAGS:
 	uv run pytest {{FLAGS}} "{{DIR}}" {{q}} --tb={{tb}}
+
+push-commit MSG: sync lint (test '-q' 'no')
+	git add .
+	git commit -m "{{MSG}}"
 
 bump SEMVER:
 	uv version "{{SEMVER}}"

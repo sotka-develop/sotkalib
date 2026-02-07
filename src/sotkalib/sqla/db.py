@@ -29,7 +29,7 @@ class DatabaseSettings(BaseModel):
 	pool_size: int = 10
 	expire_on_commit: bool = False
 	decl_base: type[DeclarativeBase] | None = None
-	explicit_safe: bool = True
+	implicit_safe: bool = True
 
 	@property
 	def async_uri(self) -> str:
@@ -45,7 +45,7 @@ type SyncSM = AbstractContextManager[Session]
 class Database:
 	__slots__ = (
 		"_decl_base",
-		"_explicit_safe",
+		"_implicit_safe",
 		"_sync_engine",
 		"_sync_session_factory",
 		"_has_async",
@@ -56,7 +56,7 @@ class Database:
 	def __init__(self, settings: DatabaseSettings):
 		self._decl_base = settings.decl_base
 
-		self._explicit_safe = settings.explicit_safe
+		self._implicit_safe = settings.implicit_safe
 
 		self._sync_engine = create_engine(
 			url=settings.uri,
@@ -116,7 +116,7 @@ class Database:
 
 	@property
 	def asession(self) -> AsyncSM:
-		if self._explicit_safe:
+		if self._implicit_safe:
 			return self.asession_safe
 		return self.asession_unsafe
 
@@ -134,7 +134,7 @@ class Database:
 
 	@property
 	def session(self) -> SyncSM:
-		if self._explicit_safe:
+		if self._implicit_safe:
 			return self.session_safe
 		return self.session_unsafe
 
