@@ -99,6 +99,81 @@ class TestClientSettings:
 		s = ExceptionSettings()
 		assert s.unspecified == "retry"
 
+	def test_merge_overrides_explicit_fields(self):
+		base = ClientSettings(timeout=10.0, maximum_retries=5)
+		patch = ClientSettings(timeout=30.0)
+		result = base | patch
+		assert result.timeout == 30.0
+		assert result.maximum_retries == 5
+
+	def test_merge_does_not_mutate_base(self):
+		base = ClientSettings(timeout=10.0)
+		patch = ClientSettings(timeout=30.0)
+		_ = base | patch
+		assert base.timeout == 10.0
+
+	def test_merge_ignores_default_fields(self):
+		base = ClientSettings(timeout=10.0, maximum_retries=5, backoff=3.0)
+		patch = ClientSettings(maximum_retries=1)
+		result = base | patch
+		assert result.timeout == 10.0
+		assert result.maximum_retries == 1
+		assert result.backoff == 3.0
+
+	def test_merge_nested_status_settings(self):
+		base = ClientSettings(status_settings=StatusSettings(not_found_as_none=True))
+		patch = ClientSettings(status_settings=StatusSettings(unspecified="raise"))
+		result = base | patch
+		assert result.status_settings.not_found_as_none is True
+		assert result.status_settings.unspecified == "raise"
+
+	def test_merge_nested_exception_settings(self):
+		base = ClientSettings(exception_settings=ExceptionSettings(unspecified="raise"))
+		patch = ClientSettings(exception_settings=ExceptionSettings(exc_to_raise=ValueError))
+		result = base | patch
+		assert result.exception_settings.unspecified == "raise"
+		assert result.exception_settings.exc_to_raise is ValueError
+
+	def test_merge_chained(self):
+		base = ClientSettings(timeout=10.0)
+		a = ClientSettings(maximum_retries=1)
+		b = ClientSettings(backoff=5.0)
+		result = base | a | b
+		assert result.timeout == 10.0
+		assert result.maximum_retries == 1
+		assert result.backoff == 5.0
+
+	def test_merge_status_settings_directly(self):
+		base = ClientSettings(timeout=10.0, status_settings=StatusSettings(not_found_as_none=True))
+		result = base | StatusSettings(unspecified="raise")
+		assert result.timeout == 10.0
+		assert result.status_settings.not_found_as_none is True
+		assert result.status_settings.unspecified == "raise"
+
+	def test_merge_exception_settings_directly(self):
+		base = ClientSettings(timeout=10.0, exception_settings=ExceptionSettings(unspecified="raise"))
+		result = base | ExceptionSettings(exc_to_raise=ValueError)
+		assert result.exception_settings.unspecified == "raise"
+		assert result.exception_settings.exc_to_raise is ValueError
+
+	def test_merge_chained_mixed(self):
+		base = ClientSettings(timeout=10.0)
+		result = (
+			base
+			| ClientSettings(maximum_retries=1)
+			| StatusSettings(not_found_as_none=False)
+			| ExceptionSettings(unspecified="raise")
+		)
+		assert result.timeout == 10.0
+		assert result.maximum_retries == 1
+		assert result.status_settings.not_found_as_none is False
+		assert result.exception_settings.unspecified == "raise"
+
+	def test_merge_direct_does_not_mutate_base(self):
+		base = ClientSettings(status_settings=StatusSettings(not_found_as_none=True))
+		_ = base | StatusSettings(not_found_as_none=False)
+		assert base.status_settings.not_found_as_none is True
+
 
 class TestRequestContext:
 	def test_basic_creation(self):

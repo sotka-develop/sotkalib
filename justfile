@@ -28,10 +28,12 @@ bump SEMVER:
 release-git SEMVER:
 	git add .
 	git commit -m "release: {{SEMVER}}"
-	git tag -a "{{SEMVER}}" -m "release: {{SEMVER}}"
-	git push; git push origin "{{SEMVER}}"
 
-release SEMVER: sync lint (test '-q' 'no') (bump SEMVER) (release-git SEMVER)
+tag-push SEMVER:
+	git tag -a "{{SEMVER}}" -m "release: {{SEMVER}}"
+	git push origin "{{SEMVER}}"
+
+release SEMVER: sync lint (test '-q' 'no') (bump SEMVER) (release-git SEMVER) (tag-push SEMVER)
 
 # let it be down here, it breaks syntax highlighting in Zed :D
 

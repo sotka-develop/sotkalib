@@ -257,10 +257,9 @@ client = HTTPSession(ClientSettings(
     ),
 ))
 
-# tweak inline with .with_()
-aggressive = ClientSettings(maximum_retries=5).with_(
-    **{"status_settings.not_found_as_none": False}
-)
+# branch from base config with |
+base = ClientSettings(timeout=10.0, maximum_retries=3)
+aggressive = base | ClientSettings(maximum_retries=5) | StatusSettings(not_found_as_none=False)
 
 async with client as http:
     resp = await http.get("https://api.example.com/users/1")

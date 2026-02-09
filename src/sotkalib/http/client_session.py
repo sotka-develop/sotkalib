@@ -2,9 +2,11 @@ import asyncio
 import ssl
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import Any, Literal, Self
+from warnings import warn
 
 import aiohttp
 from aiohttp import client_exceptions
@@ -127,7 +129,24 @@ def default_exc_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
 	), None
 
 
-class StatusSettings(BaseModel):
+class _MergeableSettings(BaseModel):
+	def _merge_from(self, other: "_MergeableSettings") -> Self:
+		merged = self.model_copy(deep=True)
+		for field_name in other.model_fields_set:
+			value = getattr(other, field_name)
+			base_value = getattr(merged, field_name)
+			if isinstance(base_value, _MergeableSettings) and isinstance(value, _MergeableSettings):
+				value = base_value._merge_from(value)
+			object.__setattr__(merged, field_name, value)
+		return merged
+
+	def __or__(self, other: "_MergeableSettings") -> Self:
+		if isinstance(other, type(self)):
+			return self._merge_from(other)
+		return NotImplemented
+
+
+class StatusSettings(_MergeableSettings):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
 
 	to_raise: set[HTTPStatus] = Field(default={HTTPStatus.FORBIDDEN})
@@ -138,7 +157,7 @@ class StatusSettings(BaseModel):
 	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
 
-class ExceptionSettings(BaseModel):
+class ExceptionSettings(_MergeableSettings):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
 
 	to_raise: tuple[type[Exception], ...] = Field(
@@ -164,7 +183,7 @@ class ExceptionSettings(BaseModel):
 	unspecified: Literal["retry", "raise"] = Field(default="retry")
 
 
-class ClientSettings(BaseModel):
+class ClientSettings(_MergeableSettings):
 	timeout: float = Field(default=5.0, gt=0)
 	base: float = Field(default=1.0, gt=0)
 	backoff: float = Field(default=2.0, gt=0)
@@ -178,23 +197,37 @@ class ClientSettings(BaseModel):
 	session_kwargs: dict[str, Any] = Field(default_factory=dict)
 	use_cookies_from_response: bool = Field(default=False)
 
+	_nested_map: dict[type, str] = {
+		StatusSettings: "status_settings",
+		ExceptionSettings: "exception_settings",
+	}
+
+	def __or__(self, other: _MergeableSettings) -> Self:
+		if isinstance(other, ClientSettings):
+			return self._merge_from(other)
+
+		field_name = self._nested_map.get(type(other))
+		if field_name is not None:
+			merged = self.model_copy(deep=True)
+			setattr(merged, field_name, getattr(merged, field_name)._merge_from(other))
+			return merged
+
+		return NotImplemented
+
 	def with_(self, **kws) -> Self:
-		"""
-
-		apply kws to settings
-
-		'.' is a separator so you can access underlying status_settings and exception_settings
-
-		"""
-
+		warn(
+			"ClientSettings.with_() is deprecated, use the | operator instead",
+			DeprecationWarning,
+			stacklevel=2,
+		)
+		ns = deepcopy(self)
 		for k, v in kws.items():
 			if "." in k:
 				pk, ck = k.split(".")
-				setattr(getattr(self, pk), ck, v)
+				setattr(getattr(ns, pk), ck, v)
 			else:
-				setattr(self, k, v)
-
-		return self
+				setattr(ns, k, v)
+		return ns
 
 
 def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:

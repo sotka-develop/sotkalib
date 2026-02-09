@@ -3,7 +3,7 @@ from sotkalib.type import Unset, unset
 
 class TestUnset:
 	def test_repr(self):
-		assert repr(Unset) == "Unset"
+		assert repr(Unset) == "<unset value>"
 
 	def test_bool_is_false(self):
 		assert bool(Unset) is False
