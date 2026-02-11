@@ -6,14 +6,16 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from sotkalib.http.client_session import (
+from sotkalib.http import (
 	ClientSettings,
 	ExceptionSettings,
-	HTTPSession,
 	RanOutOfAttemptsError,
 	RequestContext,
 	StatusRetryError,
 	StatusSettings,
+)
+from sotkalib.http.client_session import (
+	HTTPSession,
 	_make_ssl_context,
 )
 

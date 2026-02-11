@@ -1,10 +1,12 @@
 from .client_session import (
-	ClientSettings,
-	CriticalStatusError,
-	ExceptionSettings,
 	HTTPSession,
 	Middleware,
 	Next,
+)
+from .models import (
+	ClientSettings,
+	CriticalStatusError,
+	ExceptionSettings,
 	RanOutOfAttemptsError,
 	RequestContext,
 	StatusRetryError,

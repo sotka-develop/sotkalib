@@ -829,7 +829,7 @@ wheels = [
 
 [[package]]
 name = "sotkalib"
-version = "0.1.4rc2"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

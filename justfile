@@ -28,6 +28,7 @@ bump SEMVER:
 release-git SEMVER:
 	git add .
 	git commit -m "release: {{SEMVER}}"
+	git push
 
 tag-push SEMVER:
 	git tag -a "{{SEMVER}}" -m "release: {{SEMVER}}"
