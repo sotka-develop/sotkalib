@@ -1,4 +1,4 @@
-from sotkalib.type import Unset, unset
+from sotkalib.type import Unset, is_set
 
 
 class TestUnset:
@@ -13,13 +13,13 @@ class TestUnset:
 
 
 class TestUnsetFunc:
-	def test_unset_returns_true_for_unset(self):
-		assert unset(Unset) is True
+	def test_unset_returns_false_for_is_set(self):
+		assert is_set(Unset) is False
 
-	def test_unset_returns_false_for_none(self):
-		assert unset(None) is False
+	def test_unset_returns_true_for_none(self):
+		assert is_set(None) is True
 
-	def test_unset_returns_false_for_value(self):
-		assert unset("value") is False
-		assert unset(0) is False
-		assert unset([]) is False
+	def test_unset_returns_true_for_value(self):
+		assert is_set("value") is True
+		assert is_set(0) is True
+		assert is_set([]) is True

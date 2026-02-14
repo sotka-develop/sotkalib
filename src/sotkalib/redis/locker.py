@@ -28,43 +28,43 @@ end
 
 
 @runtime_checkable
-class strable(Protocol):  # noqa: N801
+class _strable(Protocol):  # noqa: N801
 	def __str__(self) -> str: ...
 
 
-class backoff(Protocol):  # noqa: N801
+class _backoff(Protocol):  # noqa: N801
 	def __call__(self, attempt: int) -> float: ...
 
 
-def plain_delay(delay: float) -> backoff:
+def plain_delay(delay: float) -> _backoff:
 	def _(attempt: int) -> float:  # noqa: ARG001
 		return delay
 
 	return _
 
 
-def additive_delay(base_delay: float, increment: float) -> backoff:
+def additive_delay(base_delay: float, increment: float) -> _backoff:
 	def _(attempt: int) -> float:  # noqa: ARG001
 		return base_delay + (attempt - 1) * increment
 
 	return _
 
 
-def exponential_delay(base_delay: float, factor: float) -> backoff:
+def exponential_delay(base_delay: float, factor: float) -> _backoff:
 	def _(attempt: int) -> float:  # noqa: ARG001
 		return base_delay * factor ** (attempt - 1)
 
 	return _
 
 
-_DEFAULT_BACKOFF: backoff = exponential_delay(0.1, 2)
+_DEFAULT_BACKOFF: _backoff = exponential_delay(0.1, 2)
 
 
 class DLSettings(BaseModel):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
 
 	wait: bool = False
-	wait_delay_func: SkipValidation[backoff] = _DEFAULT_BACKOFF
+	wait_delay_func: SkipValidation[_backoff] = _DEFAULT_BACKOFF
 	wait_timeout: float = 60.0
 	spin_attempts: int = 0
 
@@ -95,12 +95,11 @@ class DistributedLock:
 	)
 
 	def __init__(self, redis_factory: AbstractAsyncContextManager[Redis], settings: DLSettings | None = None):
-		if settings is None:
-			settings = DLSettings()
+		settings = settings or DLSettings()
 
 		self._redis_factory = redis_factory
 		self._wait = settings.wait
-		self._wait_backoff: backoff = settings.wait_delay_func
+		self._wait_backoff: _backoff = settings.wait_delay_func
 		self._wait_timeout = settings.wait_timeout
 		self._spin_attempts = settings.spin_attempts
 		self._retry_if_acquired = settings.retry_if_acquired
@@ -120,7 +119,7 @@ class DistributedLock:
 		self._wait = False
 		return self
 
-	def wait(self, *, backoff: backoff = _DEFAULT_BACKOFF, timeout: float = 60.0) -> Self:
+	def wait(self, *, backoff: _backoff = _DEFAULT_BACKOFF, timeout: float = 60.0) -> Self:
 		if not self._is_copy:
 			new = copy(self)
 			new._is_copy = True
@@ -202,11 +201,11 @@ class DistributedLock:
 			await asyncio.sleep(self._wait_backoff(attempt))
 			attempt += 1
 
-	def acq(self, key: strable, timeout: int = 5) -> AbstractAsyncContextManager[None]:
+	def acq(self, key: _strable, timeout: int = 5) -> AbstractAsyncContextManager[None]:
 		return self.acquire(key, ttl=timeout)
 
 	@asynccontextmanager
-	async def acquire(self, key: strable, *, ttl: int = 5) -> AsyncGenerator[None]:
+	async def acquire(self, key: _strable, *, ttl: int = 5) -> AsyncGenerator[None]:
 		key = str(key)
 		token = os.urandom(16).hex()
 		acquired = False

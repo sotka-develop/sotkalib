@@ -1,6 +1,6 @@
 from warnings import warn
 
-__all__ = ["Unset", "unset"]
+__all__ = ["Unset", "unset", "is_set"]
 
 
 class _UnsetType:
