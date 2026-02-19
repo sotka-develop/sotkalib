@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.1.6"
+version = "0.1.6.post1"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"

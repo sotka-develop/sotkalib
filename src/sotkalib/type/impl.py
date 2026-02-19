@@ -43,166 +43,248 @@ class DoesNotImplementError(BaseException):
 
 @overload
 def implements(  # noqa: PLR0912
-	typ: type,
+	cls: type,
 	proto: type,
 	*,
-	signatures: bool = True,
-	type_hints: bool = True,
-	strict: bool = False,
-	early_escape: Literal[False] = False,
+	signatures: bool = ...,
+	type_hints: bool = ...,
+	disallow_extra: bool = ...,
+	early: Literal[False] = False,
 ) -> None: ...
 
 
 @overload
 def implements(  # noqa: PLR0912
-	typ: type,
+	cls: type,
 	proto: type,
 	*,
-	signatures: bool = True,
-	type_hints: bool = True,
-	strict: bool = False,
-	early_escape: Literal[True],
+	signatures: bool = ...,
+	type_hints: bool = ...,
+	disallow_extra: bool = ...,
+) -> None: ...
+
+
+@overload
+def implements(  # noqa: PLR0912
+	cls: type,
+	proto: type,
+	*,
+	signatures: bool = ...,
+	type_hints: bool = ...,
+	disallow_extra: bool = ...,
+	early: Literal[True],
 ) -> bool: ...
 
 
 def implements(  # noqa: PLR0912
-	typ: type,
+	cls: type,
 	proto: type,
 	*,
 	signatures: bool = True,
 	type_hints: bool = True,
-	strict: bool = False,
-	early_escape: bool = False,
-) -> None | bool:
+	disallow_extra: bool = False,
+	early: bool = False,
+) -> bool | None:
 	"""
 	check if `typ` implements `proto` at runtime.
 
 	Args:
-		typ: the class to check.
+		cls: the class to check.
 		proto: the Protocol class to check against.
 		signatures: whether to compare callable signatures.
 		type_hints: whether to compare type annotations.
-		strict: if True, also flag extra parameters not in protocol.
-		early_escape:
+		disallow_extra: if True, also flag extra parameters not in protocol.
+		early: returns early, as bool
 
 	Raises:
 		DoesNotImplementError: if `typ` doesn't implement `proto`
 	"""
-	_viols = []
-	_raise_if_not_proto(proto)
-	_protombrs = _get_protocol_members(proto)
-	_protohints, _typhints = _get_type_hints(proto), _get_type_hints(typ)
 
-	for name, protombr in _protombrs.items():
-		typmbr = getattr(typ, name, Unset)
+	if early:
+		return _implements_early(
+			cls=cls,
+			proto=proto,
+			signatures=signatures,
+			type_hints=type_hints,
+			disallow_extra=disallow_extra,
+		)
+
+	viols = []
+	_raise_if_not_proto(proto)
+	protombrs = _get_protocol_members(proto)
+	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
+
+	for name, protombr in protombrs.items():
+		clsmbr = getattr(cls, name, Unset)
 
 		# --- missing ---
-		if not is_set(typmbr):
-			if viol := _check_missing(name, proto, _protohints, _typhints):
-				if early_escape:
-					return False
-
-				_viols.append(viol)
+		if not is_set(clsmbr):
+			if viol := _check_missing(name, proto, proto_typehints, cls_typehints):
+				viols.append(viol)
 			continue
 
-		proto_unwrapped, proto_kind = _unwrap_method(_get_raw(proto, name))
-		typ_unwrapped, typ_kind = _unwrap_method(v if is_set(v := _get_raw(typ, name)) else typmbr)
+		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
+		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(v if is_set(v := _get_raw(cls, name)) else clsmbr)
 
 		# --- property ---
-		if proto_kind == "property":
-			viols = _check_property(
+		if protombr_kind == "property":
+			if viol := _check_property(
 				name=name,
-				proto_fn=proto_unwrapped,
-				typ_kind=typ_kind,
-				typmbr=typ_unwrapped,
-				protohints=_protohints,
-				typhints=_typhints,
-				check_hints=type_hints,
-			)
-
-			if viols and early_escape:
-				return False
-
-			_viols.extend(viols)
+				clsmbr_kind=clsmbr_kind,
+				protombr=protombr_unwrapped,
+				clsmbr=clsmbr_unwrapped,
+				proto_typehints=proto_typehints,
+				cls_typehints=cls_typehints,
+				type_hints=type_hints,
+			):
+				viols.extend(viol)
 			continue
 
 		# --- static/classmethod kind ---
-		if viol := _check_method_kind(name, proto_kind, typ_kind):
-			if early_escape:
-				return False
-
-			_viols.append(viol)
+		if viol := _check_method_kind(name, protombr_kind, clsmbr_kind):
+			viols.append(viol)
 			continue
 
 		# --- callable ---
 		if callable(protombr):
-			if not callable(typmbr):
-				if early_escape:
-					return False
-
-				_viols.append(f"expected `{name}` to be callable, found {type(typmbr).__name__}")
-			elif signatures:
-				viols = _check_callable(
-					name=name,
-					protombr=protombr,
-					typmbr=typmbr,
-					proto_unwrapped=proto_unwrapped,
-					typ_unwrapped=typ_unwrapped,
-					proto_kind=proto_kind,
-					typ_kind=typ_kind,
-					strict=strict,
-				)
-
-				if viols and early_escape:
-					return False
-
-				_viols.extend(viols)
+			if viol := _check_callable(
+				name=name,
+				protombr=protombr,
+				clsmbr=clsmbr,
+				protombr_unwrapped=protombr_unwrapped,
+				clsmbr_unwrapped=clsmbr_unwrapped,
+				protombr_kind=protombr_kind,
+				clsmbr_kind=clsmbr_kind,
+				disallow_extra=disallow_extra,
+				signatures=signatures,
+			):
+				viols.extend(viol)
 			continue
 
 		# --- data attr ---
-		if callable(typmbr):
-			if early_escape:
-				return False
-			_viols.append(f"expected `{name}` to be a data attribute, found callable")
+		if callable(clsmbr):
+			viols.append(f"expected `{name}` to be a data attribute, found callable")
 			continue
 
-		if type_hints and _attrs_incompat(name, _protohints, _typhints):
-			if early_escape:
-				return False
-			_viols.append(
-				f"expected `{name}` to be of type {_tname(_protohints[name])}, found {_tname(_typhints[name])}"
+		if type_hints and _attrs_incompat(name, proto_typehints, cls_typehints):
+			viols.append(
+				f"expected `{name}` to be of type {_tname(proto_typehints[name])}, found {_tname(cls_typehints[name])}"
 			)
 
-		# check annotated-only
-	for attr, prototyp in _protohints.items():
-		if attr in _protombrs or attr.startswith("_"):
+	# check annotated-only
+	for attr, protombr_type in proto_typehints.items():
+		if attr in protombrs or attr.startswith("_"):
 			# already checked above OR protected
 			continue
 
-		has_attr = hasattr(typ, attr)
-		if not has_attr and attr not in _typhints:
-			if early_escape:
-				return False
-			_viols.append(f"expected annotated attribute `{attr}` (type={_tname(prototyp)})")
-		elif has_attr and callable(getattr(typ, attr)) and attr not in _typhints:
-			if early_escape:
-				return False
-			_viols.append(f"expected `{attr}` to be a data attribute, found callable")
-		elif type_hints and attr in _typhints and not _compatible(prototyp, _typhints[attr]):
-			if early_escape:
-				return False
-			_viols.append(
-				f"expected annotated attribute `{attr}` to be of type {_tname(prototyp)}, "
-				f"found {_tname(_typhints[attr])}"
-			)
+		if viol := _process_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
+			viols.append(viol)
 
-	if early_escape:
-		return True
-
-	if _viols:
-		raise DoesNotImplementError(_viols, proto, typ)
+	if any(viols):
+		raise DoesNotImplementError(viols, proto, cls)
 
 	return None
+
+
+def _process_annot_attrs(attr: str, cls: type, cls_typehints: dict, protombr_type: type, type_hints: bool):
+	if not hasattr(cls, attr) and attr not in cls_typehints:
+		return f"expected annotated attribute `{attr}` (type={_tname(protombr_type)})"
+	elif hasattr(cls, attr) and callable(getattr(cls, attr)) and attr not in cls_typehints:
+		return f"expected `{attr}` to be a data attribute, found callable"
+	elif type_hints and attr in cls_typehints and not _compatible(protombr_type, cls_typehints[attr]):
+		return f"expected annotated attribute `{attr}` to be of type {_tname(protombr_type)}, found {_tname(cls_typehints[attr])}"
+
+	return None
+
+
+def _implements_early(  # noqa: PLR0912
+	cls: type,
+	proto: type,
+	*,
+	signatures: bool = True,
+	type_hints: bool = True,
+	disallow_extra: bool = False,
+) -> bool:
+	"""
+	check if `typ` implements `proto` at runtime and exits early by returning a boolean
+
+	Args:
+		cls: the class to check.
+		proto: the Protocol class to check against.
+		signatures: whether to compare callable signatures.
+		type_hints: whether to compare type annotations.
+		disallow_extra: if True, also flag extra parameters not in protocol.
+
+	Raises:
+		DoesNotImplementError: if `typ` doesn't implement `proto`
+	"""
+	_raise_if_not_proto(proto)
+	protombrs = _get_protocol_members(proto)
+	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
+
+	for name, protombr in protombrs.items():
+		clsmbr = getattr(cls, name, Unset)
+
+		# --- missing ---
+		if not is_set(clsmbr):
+			if _check_missing(name, proto, proto_typehints, cls_typehints):
+				return False
+			continue
+
+		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
+		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(v if is_set(v := _get_raw(cls, name)) else clsmbr)
+
+		# --- property ---
+		if protombr_kind == "property":
+			if _check_property(
+				name=name,
+				clsmbr_kind=clsmbr_kind,
+				protombr=protombr_unwrapped,
+				clsmbr=clsmbr_unwrapped,
+				proto_typehints=proto_typehints,
+				cls_typehints=cls_typehints,
+				type_hints=type_hints,
+			):
+				return False
+			continue
+
+		# --- static/classmethod kind ---
+		if _check_method_kind(name, protombr_kind, clsmbr_kind):
+			return False
+
+		# --- callable ---
+		if callable(protombr):
+			if _check_callable(
+				name=name,
+				protombr=protombr,
+				clsmbr=clsmbr,
+				protombr_unwrapped=protombr_unwrapped,
+				clsmbr_unwrapped=clsmbr_unwrapped,
+				protombr_kind=protombr_kind,
+				clsmbr_kind=clsmbr_kind,
+				disallow_extra=disallow_extra,
+				signatures=signatures,
+			):
+				return False
+			continue
+
+		# --- data attr ---
+		if callable(clsmbr):
+			return False
+
+		if type_hints and _attrs_incompat(name, proto_typehints, cls_typehints):
+			return False
+
+	# check annotated-only
+	for attr, protombr_type in proto_typehints.items():
+		if attr in protombrs or attr.startswith("_"):
+			# already checked above OR protected
+			continue
+
+		if _process_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
+			return False
+
+	return True
 
 
 class _CheckableMeta(_ProtocolMeta):
@@ -214,7 +296,7 @@ class _CheckableMeta(_ProtocolMeta):
 		return cls
 
 	def __rmod__(self, other: type) -> bool:
-		return implements(other, self._protocol_cls, early_escape=True)
+		return implements(other, self._protocol_cls, early=True)
 
 
 class CheckableProtocol(Protocol, metaclass=_CheckableMeta): ...

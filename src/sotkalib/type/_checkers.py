@@ -137,27 +137,27 @@ def _check_missing(
 
 def _check_property(
 	name: str,
-	proto_fn: typing.Any,
-	typ_kind: MethodKind,
-	typmbr: typing.Any,
-	protohints: dict,
-	typhints: dict,
-	check_hints: bool,
+	protombr: typing.Any,
+	clsmbr_kind: MethodKind,
+	clsmbr: typing.Any,
+	proto_typehints: dict,
+	cls_typehints: dict,
+	type_hints: bool,
 ) -> list[str]:
-	if typ_kind == "property":
-		return _check_two_props(name, proto_fn, typmbr, check_hints)
-	if name not in typhints and is_set(typmbr):
+	if clsmbr_kind == "property":
+		return _check_two_props(name, protombr, clsmbr, type_hints)
+	if name not in cls_typehints and is_set(clsmbr):
 		return []  # has a concrete value, fine
-	if name not in typhints:
+	if name not in cls_typehints:
 		return [f"expected property or attribute `{name}`"]
-	if not check_hints:
+	if not type_hints:
 		return []
 	# compare types: use protohints if available, otherwise extract from property getter
-	proto_type = protohints.get(name)
-	if proto_type is None and proto_fn:
-		proto_type = _get_type_hints(proto_fn).get("return")
-	if proto_type and name in typhints and not _compatible(proto_type, typhints[name]):
-		return [f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(typhints[name])}"]
+	proto_type = proto_typehints.get(name)
+	if proto_type is None and protombr:
+		proto_type = _get_type_hints(protombr).get("return")
+	if proto_type and name in cls_typehints and not _compatible(proto_type, cls_typehints[name]):
+		return [f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(cls_typehints[name])}"]
 	return []
 
 
@@ -193,14 +193,19 @@ def _check_method_kind(
 def _check_callable(
 	name: str,
 	protombr: typing.Any,
-	typmbr: typing.Any,
-	proto_unwrapped: typing.Any,
-	typ_unwrapped: typing.Any,
-	proto_kind: MethodKind,
-	typ_kind: MethodKind,
-	strict: bool,
+	clsmbr: typing.Any,
+	protombr_unwrapped: typing.Any,
+	clsmbr_unwrapped: typing.Any,
+	protombr_kind: MethodKind,
+	clsmbr_kind: MethodKind,
+	disallow_extra: bool,
+	signatures: bool,
 ) -> list[str]:
-	"""both sides are callable — compare signatures."""
-	p = proto_unwrapped if proto_kind == "static" else protombr
-	t = typ_unwrapped if typ_kind == "static" else typmbr
-	return _check_signatures(name, p, t, strict)
+	if not callable(clsmbr):
+		return [f"expected `{name}` to be callable, found {type(clsmbr).__name__}"]
+	elif signatures:
+		p = protombr_unwrapped if protombr_kind == "static" else protombr
+		t = clsmbr_unwrapped if clsmbr_kind == "static" else clsmbr
+		return _check_signatures(name, p, t, disallow_extra)
+
+	return []

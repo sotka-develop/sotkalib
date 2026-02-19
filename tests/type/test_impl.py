@@ -216,28 +216,28 @@ class TestStrictMode:
 				return str(x)
 
 		with pytest.raises(DoesNotImplementError, match="unexpected required parameter"):
-			implements(Impl, ProtocolWithMethod, strict=True)
+			implements(Impl, ProtocolWithMethod, disallow_extra=True)
 
 	def test_extra_param_with_default_ok(self):
 		class Impl:
 			def method(self, x: int, extra: str = "default") -> str:
 				return str(x)
 
-		implements(Impl, ProtocolWithMethod, strict=True)
+		implements(Impl, ProtocolWithMethod, disallow_extra=True)
 
 	def test_extra_args_ok(self):
 		class Impl:
 			def method(self, x: int, *args: Any) -> str:
 				return str(x)
 
-		implements(Impl, ProtocolWithMethod, strict=True)
+		implements(Impl, ProtocolWithMethod, disallow_extra=True)
 
 	def test_extra_kwargs_ok(self):
 		class Impl:
 			def method(self, x: int, **kwargs: Any) -> str:
 				return str(x)
 
-		implements(Impl, ProtocolWithMethod, strict=True)
+		implements(Impl, ProtocolWithMethod, disallow_extra=True)
 
 	def test_non_strict_ignores_extra_required(self):
 		class Impl:
@@ -245,7 +245,7 @@ class TestStrictMode:
 				return str(x)
 
 		# non-strict — should pass
-		implements(Impl, ProtocolWithMethod, strict=False)
+		implements(Impl, ProtocolWithMethod, disallow_extra=False)
 
 
 # ============================================================

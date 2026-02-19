@@ -1,7 +1,7 @@
 from _warnings import warn
 
 
-class UnsetType:
+class UnsetT:
 	__slots__ = ()
 
 	def __repr__(self) -> str:
@@ -13,12 +13,12 @@ class UnsetType:
 		return False
 
 
-_UnsetType = UnsetType
-Unset = UnsetType()
+_UnsetType = UnsetT
+Unset = UnsetT()
 
 
 def is_set(val: object) -> bool:
-	return not isinstance(val, UnsetType)
+	return not isinstance(val, UnsetT)
 
 
 def unset(val: object) -> bool:

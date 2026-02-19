@@ -1,4 +1,4 @@
-from sotkalib.time import dtfunc
+from pydantic import BaseModelfrom datetime import timezonefrom sotkalib.time import dtfunc
 
 # sotkalib
 
@@ -35,7 +35,7 @@ class Config(AppSettings):
         return "derived-from-other-fields"
 
 settings = Config()                                    # loads from env / .env
-settings = Config(dotenv_path=".env.prod", strict=True)  # strict rejects mutable types
+prod_settings = Config(dotenv_path=".env.prod", strict=True)  # strict rejects mutable types
 ```
 
 `SettingsField` options:
@@ -57,6 +57,7 @@ from sotkalib.sqla import Database, DatabaseSettings, BasicDBM
 db = Database(DatabaseSettings(
     uri="postgresql://user:pass@localhost:5432/mydb",
     async_driver="psycopg",   # set to None to disable async
+	enable_sync_engine=False, 
     pool_size=10,
     echo=False,
     expire_on_commit=False,
@@ -64,13 +65,13 @@ db = Database(DatabaseSettings(
 ))
 
 # async usage -- auto-commits, rolls back on exception
-async with db as d:
+async with db as d: # would raise with async_engine=None
     async with d.asession as session:
-        session.add(row)
+        session.add(row) 
 
 # sync usage
-with db as d:
-    with d.session as session:
+with db as d: # would raise with enable_sync_engine=False
+    with d.session as session: 
         session.add(row)
 
 # explicit unsafe if needed
@@ -164,17 +165,12 @@ Define a base instance, then derive variants with different TTLs, versions, seri
 from sotkalib.redis import RedisLRU, LRUSettings
 
 # base instance -- define once, import everywhere
-cache = RedisLRU(pool, LRUSettings(ttl=600, version=1))
+LRU = RedisLRU(pool, LRUSettings(ttl=600, version=1))
 
-# derive variants (returns a copy, original is untouched)
-short_cache = cache.ttl(60)
-v2_cache = cache.version(2)
-custom_cache = cache.ttl(300).version(3).serializer(MySerializer)
-
-@cache
+@LRU.version(2).ttl(60)
 async def get_user(user_id: int) -> User: ...
 
-@short_cache
+@LRU.ttl(300).version(3).serializer(JSONSerializer)
 async def get_session(token: str) -> Session: ...
 ```
 
@@ -200,20 +196,15 @@ Redis-based distributed lock with three acquisition phases: spin (tight loop, no
 from sotkalib.redis import DistributedLock, DLSettings
 
 # base instance
-dlock = DistributedLock(pool, DLSettings())
-
-# derive variants
-wait_lock = dlock.wait(timeout=30.0, backoff=exponential_delay(0.1, 2))
-nowait_lock = dlock.no_wait().if_taken(retry=False)
-spin_lock = dlock.spin(attempts=100).no_wait()
+Locker = DistributedLock(pool, DLSettings())
 
 # use
-async with wait_lock.acquire("resource:123", ttl=10):
-    ...  # lock held
+async with Locker.wait(timeout=30.0, backoff=exponential_delay(0.1, 2)).acquire("resource:123", ttl=10):
+	...  # lock held
 
 # shorthand
-async with dlock.acq("resource:123", timeout=5):
-    ...
+async with Locker.spin(attempts=100).no_wait().acq("resource:123", timeout=5):
+	...
 ```
 
 Builder methods: `.wait()`, `.no_wait()`, `.spin()`, `.if_taken()`, `.exc()`
@@ -261,9 +252,12 @@ client = HTTPSession(ClientSettings(
 
 # branch from base config with |
 base = ClientSettings(timeout=10.0, maximum_retries=3)
-aggressive = base | ClientSettings(maximum_retries=5) | StatusSettings(not_found_as_none=False)
 
-async with client as http:
+async with (
+    base 
+    | ClientSettings(maximum_retries=5) 
+    | StatusSettings(not_found_as_none=False)
+) as http:
     resp = await http.get("https://api.example.com/users/1")
     data = await http.post("https://api.example.com/users", json=payload)
 ```
@@ -346,7 +340,7 @@ except Exception as e:
 
 ### `func` -- Functional utilities
 
-#### Guards
+#### `type guards`
 
 ```python
 from sotkalib.func import or_raise, type_or_raise
@@ -374,6 +368,8 @@ with suppress(mode="exact", exact_types=[KeyError, IndexError]):  # only these t
 ```python
 from sotkalib.func import asyncfn, asyncfn_or_raise
 
+def my_func(): ...
+
 asyncfn(my_func)            # True if coroutine function
 asyncfn_or_raise(my_func)   # raises TypeError if not
 ```
@@ -381,12 +377,26 @@ asyncfn_or_raise(my_func)   # raises TypeError if not
 #### Deferred awaiting
 
 ```python
-from sotkalib.func import defer, defer_ok
+from sotkalib.func import defer, defer_ok, defer_exc, defer_exc_mute
 
-async with defer(cleanup_coro()):      # awaited in finally (always runs)
+async def coro(): ...
+
+# awaited in finally (always runs)
+async with defer(coro()):     
     ...
 
-async with defer_ok(commit_coro()):    # awaited only if no exception
+# awaited only if no exception
+async with defer_ok(coro()):   
+    ...
+
+# awaited only if exception raised
+# -> bubbles exception up
+async with defer_exc(coro()):  
+    ...
+
+# awaited only if exception raised
+# -> silences exception
+async with defer_exc_mute(coro()):    # awaited only if no exception
     ...
 ```
 
@@ -400,10 +410,19 @@ Falls back to `str()` for unknown types. Depth-limited to prevent infinite recur
 
 ```python
 from sotkalib.json import safe_serialize
+from sotkalib.time import now
+from decimal import Decimal
+from pydantic import BaseModel
 
+class PM(BaseModel): 
+	a: bytes = "2"
+	b: int = 3
+
+pydantic_model = PM()
+	
 raw: bytes = safe_serialize(
 	{
-		"created": dtfunc.now(),
+		"created": now(),
 		"amount":  Decimal("19.99"),
 		"profile": pydantic_model,
 	}
@@ -440,9 +459,10 @@ class Color(ValidatorMixin, UppercaseMixin):
     RED = auto()
     GREEN = auto()
 
+col: Color = Color.RED
 Color.validate(val="RED", req=True)   # Color.RED
 Color.get("blue", default=Color.RED)  # Color.RED
-Color.RED.in_(Color.RED, Color.GREEN) # True
+col.in_(Color.RED, Color.GREEN) # True
 ```
 
 ---
@@ -451,41 +471,103 @@ Color.RED.in_(Color.RED, Color.GREEN) # True
 
 ```python
 from sotkalib.time import utcnow, now
+from datetime import timezone, timedelta
 
-utcnow()    # datetime.now(UTC)
-now()       # datetime.now() with local tz
-now(tz)     # datetime.now(tz)
+tz = timezone(offset=timedelta(hours=12))
+utcnow() # datetime.now(UTC)
+now()    # datetime.now() with local tz
+now(tz)  # datetime.now(tz)
 ```
 
 ---
 
-### `type` -- Sentinel types
+### `type` -- Sentinel types and runtime protocol checking
+
+#### `Unset` sentinel
 
 `Unset` singleton to distinguish "not provided" from `None`.
 
 ```python
-from sotkalib.type import Unset, unset
+from sotkalib.type import Unset, unset, UnsetT
 
-def update(name: str | _UnsetType = Unset):
-    if not unset(name):
-        ...
+
+def update(name: str | UnsetT = Unset):
+	if not unset(name):
+		...
+```
+
+#### `implements` -- Runtime protocol checking
+
+Check if a class implements a Protocol at runtime, with optional signature and type hint validation.
+
+```python
+from typing import Protocol
+from sotkalib.type import implements, DoesNotImplementError
+
+
+class UserGetter(Protocol):
+	def get_user(self, user_id: int) -> str: ...
+
+
+class DB:
+	def get_user(self, user_id: int) -> str:
+		return "user"
+
+
+# Check without raising
+if implements(DB, UserGetter, early=True):
+	print("DB implements UserGetter")
+
+# Strict check with raising
+try:
+	implements(DB, UserGetter, disallow_extra=True)
+except DoesNotImplementError as e:
+	print(e.violations)  # list of what failed
+```
+
+Options:
+- `signatures` -- compare callable signatures (default: True)
+- `type_hints` -- compare type annotations (default: True)
+- `disallow_extra` -- flag extra parameters not in protocol (default: False)
+- `early` -- return bool instead of raising (default: False)
+
+#### `CheckableProtocol` -- Protocol with `%` operator
+
+A Protocol subclass that supports the `%` operator for concise runtime checks.
+
+```python
+from sotkalib.type import CheckableProtocol
+
+class UserGetter(CheckableProtocol):
+    @property
+    def val(self) -> int: ...
+
+class Impl:
+    val: int
+
+class Impl2:
+    val: str  # wrong type
+
+print(Impl % UserGetter)   # True
+print(Impl2 % UserGetter) # False (val is str, not int)
 ```
 
 ---
 
 ### `dict` -- Dictionary utilities
 
-Extended dict (`_dict`) with attribute access and chainable filter methods. Works with the `Unset` sentinel.
+Extended dict (`mod_dict`) with attribute access and chainable filter methods. Works with the `Unset` sentinel.
 
 ```python
-from sotkalib.dict import _dict, valid, not_none
+from sotkalib.dict.util import mod_dict, valid, not_none
+from sotkalib.type import Unset
 
-d = _dict(a=1, b=None, c=Unset)
+d = mod_dict(a=1, b=None, c=Unset)
 
-d.a              # 1 (attribute access)
-d.valid()        # _dict(a=1, b=None)  -- strips Unset values
-d.not_none()     # _dict(a=1, c=Unset) -- strips None values
-d.keys_()        # [a, b, c] as list
+v = d.a  # 1 (attribute access)
+d.valid()  # mod_dict(a=1, b=None)  -- strips Unset values
+d.not_none()  # mod_dict(a=1, c=Unset) -- strips None values
+d.keys_()  # [a, b, c] as list
 ```
 
 Standalone functions: `valid(d)`, `unset(d)`, `not_none(d)`
