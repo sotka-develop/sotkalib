@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Any
 
-from annotated_types import Ge
 from pydantic import BaseModel, PositiveInt
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,6 +119,15 @@ class BaseRepository[M: BasicDBM, PK]:
 		return instances
 
 	async def delete_many(self, obj_ids: Sequence[PK]) -> None:
+		"""
+		*Delete many instances by their primary keys*
+
+		#### Parameters
+
+		- **obj_ids**: `Sequence[PK]` - primary keys \\_0_\
+
+		"""
+
 		instances: list[M] = []
 		for obj_id in obj_ids:
 			instance = await self.one(obj_id)
@@ -136,10 +144,24 @@ class BaseRepository[M: BasicDBM, PK]:
 		self,
 		where: Sequence[ColumnElement[bool]] | None = None,
 		options: Sequence[_AbstractLoad] | None = None,
-		page: Annotated[int, Ge(1)] = 1,
+		page: PositiveInt = 1,
 		page_size: PositiveInt | None = None,
 		unique: bool = False,
 	) -> Sequence[M]:
+		"""
+		*Get all instances of `M` by predicate, preload relationships, paginate and filter by uniqueness*
+
+		#### Parameters
+
+		- **where**: `Sequence[ColumnElement[bool]]` - sequence of predicates to use with query
+		- **options**: `Sequence[selectinload | joinedload...]` - sequence of realtionship loads to apply to query
+		- **page**: `int` - (>0) query page
+		- **page_size**: `int` - (>0) query page size
+		- **unique**: `bool` - whether to return unique results
+
+		**Return type**: `Sequence[M]`
+
+		"""
 		stmt = select(self.model)
 
 		if where is not None:

@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.1.5rc1"
+version = "0.1.6"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
@@ -12,7 +12,6 @@ dependencies = [
     "orjson>=3.11.7",
     "pydantic>=2.12.0",
     "redis>=6.4.0,<8.0.0",
-    "scalar-fastapi>=1.6.1",
     "sqlalchemy[asyncio]>=2.0.0",
 ]
 

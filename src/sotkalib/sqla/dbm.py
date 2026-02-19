@@ -5,7 +5,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm.attributes import flag_modified
 
-from sotkalib.sqla.validate import _autoset
+from .validate import _autoset
 
 
 class BasicDBM(DeclarativeBase):

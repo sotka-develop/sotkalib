@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING, final, override
 
 import sqlalchemy as sa
 from pydantic import BaseModel
-from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import ColumnProperty, DeclarativeBase
 from sqlalchemy.orm.attributes import flag_modified
@@ -79,7 +78,7 @@ def flag_pydantic_changes[T: DeclarativeBase](target: T) -> None:
 		...     flag_pydantic_changes(target)
 	"""
 
-	inspector = inspect(target)
+	inspector = sa.inspect(target)
 	mapper = inspector.mapper
 
 	for attr in inspector.attrs:

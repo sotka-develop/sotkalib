@@ -1,11 +1,3 @@
-from datetime import UTC, datetime, timezone
+from .dtfunc import now, utcnow
 
 __all__ = ["utcnow", "now"]
-
-
-def utcnow() -> datetime:
-	return datetime.now(UTC)
-
-
-def now(tz: timezone | None = None) -> datetime:
-	return datetime.now(tz)

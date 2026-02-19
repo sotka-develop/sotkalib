@@ -6,6 +6,7 @@ from uuid import UUID
 
 import orjson
 
+from sotkalib.func import suppress
 from sotkalib.log import get_logger
 
 
@@ -33,16 +34,12 @@ def safe_serialize_value(obj: Any, _depth: int = 0, _depth_limit: int = 10) -> A
 		return [safe_serialize_value(item, _depth + 1, _depth_limit) for item in obj]
 
 	if hasattr(obj, "model_dump"):
-		try:
+		with suppress("exact", (TypeError, ValueError)):
 			return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.model_dump().items()}
-		except Exception:
-			return None
 
 	if hasattr(obj, "__dict__"):
-		try:
+		with suppress("exact", (TypeError, ValueError)):
 			return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.__dict__.items()}
-		except Exception:
-			return None
 
 	try:
 		orjson.dumps(obj)
@@ -50,10 +47,9 @@ def safe_serialize_value(obj: Any, _depth: int = 0, _depth_limit: int = 10) -> A
 	except (TypeError, ValueError):
 		pass
 
-	try:
+	with suppress():
 		return str(obj)
-	except Exception:
-		return None
+	return None
 
 
 def safe_serialize(data: Any) -> bytes:

@@ -10,7 +10,7 @@ from sotkalib.sqla import Database
 
 @pytest.fixture(scope="session")
 def pg_container():
-	with PostgresContainer("postgres:17-alpine") as pg:
+	with PostgresContainer("postgres:18-alpine") as pg:
 		yield pg
 
 

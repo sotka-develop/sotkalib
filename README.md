@@ -1,3 +1,5 @@
+from sotkalib.time import dtfunc
+
 # sotkalib
 
 Async-first utility library for Python 3.13+. Reusable building blocks for web applications with database, caching, and HTTP support.
@@ -360,11 +362,11 @@ Context manager with two modes:
 ```python
 from sotkalib.func import suppress
 
-with suppress():                                        # suppresses all exceptions
-    risky()
+with suppress():  # suppresses all exceptions
+	risky()
 
-with suppress(mode="exact", excts=[KeyError, IndexError]):  # only these types (exact match, not subclasses)
-    d["missing"]
+with suppress(mode="exact", exact_types=[KeyError, IndexError]):  # only these types (exact match, not subclasses)
+	d["missing"]
 ```
 
 #### Async checks
@@ -399,11 +401,13 @@ Falls back to `str()` for unknown types. Depth-limited to prevent infinite recur
 ```python
 from sotkalib.json import safe_serialize
 
-raw: bytes = safe_serialize({
-    "created": datetime.now(),
-    "amount": Decimal("19.99"),
-    "profile": pydantic_model,
-})
+raw: bytes = safe_serialize(
+	{
+		"created": dtfunc.now(),
+		"amount":  Decimal("19.99"),
+		"profile": pydantic_model,
+	}
+)
 ```
 
 ---

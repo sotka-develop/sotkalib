@@ -92,10 +92,12 @@ class Database:
 
 	def __init__(self, settings: DatabaseSettings):
 		self._decl_base = settings.decl_base
-
 		self._implicit_safe = settings.implicit_safe
-
 		self._sync_enabled = settings.enable_sync_engine
+		self._async_enabled = settings.async_driver is not None
+
+		if not self._sync_enabled and not self._async_enabled:
+			raise RuntimeError("either one or both of modes must be specified")
 
 		if self._sync_enabled:
 			self._sync_engine = create_engine(
@@ -107,8 +109,6 @@ class Database:
 				bind=self._sync_engine,
 				expire_on_commit=settings.expire_on_commit,
 			)
-
-		self._async_enabled = settings.async_driver is not None
 
 		if self._async_enabled:
 			self._async_engine = create_async_engine(
@@ -179,9 +179,7 @@ class Database:
 
 	@property
 	def asession(self) -> _ASM:
-		if self._implicit_safe:
-			return self.asession_safe
-		return self.asession_unsafe
+		return self.asession_safe if self._implicit_safe else self.asession_unsafe
 
 	@property
 	def async_session(self) -> _ASM:
@@ -198,9 +196,7 @@ class Database:
 	@property
 	@_raise_on_uninitialized
 	def session(self) -> _SSM:
-		if self._implicit_safe:
-			return self.session_safe
-		return self.session_unsafe
+		return self.session_safe if self._implicit_safe else self.session_unsafe
 
 	async def aclose(self):
 		if self._async_enabled:

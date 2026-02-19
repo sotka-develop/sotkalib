@@ -26,6 +26,7 @@ bump SEMVER:
     uv version "{{ SEMVER }}"
 
 release-git SEMVER:
+    git pull
     git add .
     git commit -m "release: {{ SEMVER }}"
     git push

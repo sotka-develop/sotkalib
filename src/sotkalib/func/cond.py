@@ -6,22 +6,20 @@ from warnings import warn
 
 @contextmanager
 def suppress(
-	mode: Literal["all", "exact"] = "all", excts: Sequence[type[BaseException]] | None = None
+	mode: Literal["all", "exact"] = "all", exact_types: Sequence[type[BaseException]] | None = None
 ) -> Generator[None]:
-	if excts is None:
+	if exact_types is None:
 		if mode == "exact":
 			warn("mode = 'exact' and excts = None is passed to suppress, bubbling exception up", stacklevel=2)
-		exc_ts = ()
-	else:
-		exc_ts = excts
+		exact_types = ()
 
 	try:
-		yield None
+		yield
 	except Exception as exc:
 		if mode == "all":
 			return
 
-		if mode == "exact" and type(exc) in exc_ts:
+		if mode == "exact" and type(exc) in exact_types:
 			return
 
 		raise exc

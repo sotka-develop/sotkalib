@@ -37,24 +37,15 @@ class _backoff(Protocol):  # noqa: N801
 
 
 def plain_delay(delay: float) -> _backoff:
-	def _(attempt: int) -> float:  # noqa: ARG001
-		return delay
-
-	return _
+	return lambda attempt: delay
 
 
 def additive_delay(base_delay: float, increment: float) -> _backoff:
-	def _(attempt: int) -> float:  # noqa: ARG001
-		return base_delay + (attempt - 1) * increment
-
-	return _
+	return lambda attempt: base_delay + (attempt - 1) * increment
 
 
 def exponential_delay(base_delay: float, factor: float) -> _backoff:
-	def _(attempt: int) -> float:  # noqa: ARG001
-		return base_delay * factor ** (attempt - 1)
-
-	return _
+	return lambda attempt: base_delay * factor ** (attempt - 1)
 
 
 _DEFAULT_BACKOFF: _backoff = exponential_delay(0.1, 2)
