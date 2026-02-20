@@ -1,4 +1,4 @@
-from .impl import CheckableProtocol, DoesNotImplementError, implements
+from . import iface
 from .unset import Unset, UnsetT, _UnsetType, is_set, unset
 
 __all__ = [
@@ -7,7 +7,5 @@ __all__ = [
 	"is_set",
 	"_UnsetType",
 	"UnsetT",
-	"DoesNotImplementError",
-	"implements",
-	"CheckableProtocol",
+	"iface",
 ]

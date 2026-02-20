@@ -4,11 +4,13 @@ from collections.abc import AsyncGenerator, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 from copy import copy
 from time import time
-from typing import Any, Protocol, Self, runtime_checkable
+from typing import Any, Protocol, Self
 
 from pydantic import ConfigDict, Field, SkipValidation
 from pydantic.main import BaseModel
 from redis.asyncio import Redis
+
+from sotkalib.type.iface import CheckableProtocol, implements
 
 _RELEASE_LUA = """
 if redis.call("get", KEYS[1]) == ARGV[1] then
@@ -27,8 +29,7 @@ end
 """
 
 
-@runtime_checkable
-class _strable(Protocol):  # noqa: N801
+class strable(CheckableProtocol):  # noqa: N801
 	def __str__(self) -> str: ...
 
 
@@ -192,11 +193,12 @@ class DistributedLock:
 			await asyncio.sleep(self._wait_backoff(attempt))
 			attempt += 1
 
-	def acq(self, key: _strable, timeout: int = 5) -> AbstractAsyncContextManager[None]:
+	def acq(self, key: strable, timeout: int = 5) -> AbstractAsyncContextManager[None]:
 		return self.acquire(key, ttl=timeout)
 
 	@asynccontextmanager
-	async def acquire(self, key: _strable, *, ttl: int = 5) -> AsyncGenerator[None]:
+	async def acquire(self, key: Any, *, ttl: int = 5) -> AsyncGenerator[None]:
+		implements(type(key), strable)
 		key = str(key)
 		token = os.urandom(16).hex()
 		acquired = False

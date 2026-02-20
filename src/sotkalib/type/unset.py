@@ -1,4 +1,6 @@
-from _warnings import warn
+"""module containing unset sentinel type/value"""
+
+from warnings import warn
 
 
 class UnsetT:

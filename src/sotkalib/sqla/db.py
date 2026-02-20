@@ -1,31 +1,53 @@
 import functools
 import inspect
-from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import (
-	AbstractAsyncContextManager,
-	AbstractContextManager,
 	asynccontextmanager,
 	contextmanager,
 )
-from typing import Concatenate, Self, overload
+from dataclasses import dataclass
+from typing import Self, overload
 
-from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from sotkalib.log import get_logger
+from sotkalib.type.generics import any_method, async_contextmgr, async_method, contextmgr, coro, method
+
+
+@overload
+def _raise_on_uninitialized[**p, r](
+	func: method["Database", p, r],
+) -> method["Database", p, r]: ...
+@overload
+def _raise_on_uninitialized[**p, r](
+	func: async_method["Database", p, r],
+) -> async_method["Database", p, r]: ...
+
+
+def _raise_on_uninitialized[**p, r](func: any_method["Database", p, r]) -> any_method["Database", p, r]:
+	@functools.wraps(func)
+	def _wrap(self: "Database", *args: p.args, **kwargs: p.kwargs) -> r | coro[r]:
+		if inspect.iscoroutinefunction(func):
+			if not self._async_enabled:
+				raise RuntimeError("async engine is not initialized for this instance")
+		elif not self._sync_enabled:
+			raise RuntimeError("sync engine is not initialized for this instance")
+
+		return func(self, *args, **kwargs)
+
+	return _wrap
 
 
 class ConnectionTimeoutError(Exception):
 	pass
 
 
-class DatabaseSettings(BaseModel):
-	model_config = ConfigDict(arbitrary_types_allowed=True)
-
-	uri: str = Field(examples=["postgresql://username:password@localhost:5432/database"])
+@dataclass(slots=True, kw_only=True)
+class DatabaseSettings:
+	uri: str
 	async_driver: str | None = "psycopg"
 	enable_sync_engine: bool = True
 	echo: bool = False
@@ -39,43 +61,6 @@ class DatabaseSettings(BaseModel):
 		if self.async_driver is None:
 			raise ValueError("tried to get async uri when driver is not passed")
 		return self.uri.replace("postgresql://", "postgresql+" + self.async_driver + "://")
-
-
-type _ASM = AbstractAsyncContextManager[AsyncSession]
-type _SSM = AbstractContextManager[Session]
-type _Coro[T] = Coroutine[None, None, T]
-type _SyncMethod[Self, **Ps, R] = Callable[Concatenate[Self, Ps], R]
-type _AsyncMethod[Self, **Ps, R] = Callable[Concatenate[Self, Ps], _Coro[R]]
-
-
-@overload
-def _raise_on_uninitialized[**Ps, R](
-	func: _SyncMethod["Database", Ps, R],
-) -> _SyncMethod["Database", Ps, R]: ...
-@overload
-def _raise_on_uninitialized[**Ps, R](
-	func: _AsyncMethod["Database", Ps, R],
-) -> _AsyncMethod["Database", Ps, R]: ...
-
-
-def _raise_on_uninitialized[**Ps, R](
-	func: _SyncMethod["Database", Ps, R] | _AsyncMethod["Database", Ps, R],
-) -> _SyncMethod["Database", Ps, R] | _AsyncMethod["Database", Ps, R]:
-	if inspect.iscoroutinefunction(func):
-
-		async def _awrap(self: "Database", *args: Ps.args, **kwargs: Ps.kwargs) -> R:
-			if not self._async_enabled:
-				raise RuntimeError("async engine is not initialized for this instance")
-			return await func(self, *args, **kwargs)  # type:ignore
-
-		return functools.wraps(_awrap)(func)
-
-	def _swrap(self: "Database", *args: Ps.args, **kwargs: Ps.kwargs) -> R:
-		if not self._sync_enabled:
-			raise RuntimeError("sync engine is not initialized for this instance")
-		return func(self, *args, **kwargs)  # type:ignore
-
-	return functools.wraps(_swrap)(func)  # type:ignore
 
 
 class Database:
@@ -125,18 +110,20 @@ class Database:
 	def __enter__(self) -> Self:
 		return self
 
-	def __exit__(self, exc_type, exc_val, exc_tb):
+	@_raise_on_uninitialized
+	def __exit__(self, exc_type, exc_val, exc_tb) -> None:
 		self.close()
 
 	@_raise_on_uninitialized
 	async def __aenter__(self) -> Self:
 		return self
 
-	async def __aexit__(self, *args):
+	@_raise_on_uninitialized
+	async def __aexit__(self, *args) -> None:
 		await self.aclose()
 
 	@_raise_on_uninitialized
-	def create(self):
+	def create(self) -> None:
 		if self._decl_base is None:
 			raise ValueError("create called when decl_base is None")
 
@@ -144,15 +131,15 @@ class Database:
 			self._decl_base.metadata.create_all(conn)
 
 	@_raise_on_uninitialized
-	async def acreate(self):
+	async def acreate(self) -> None:
 		if self._decl_base is None:
 			raise ValueError("create called when decl_base is None")
 
 		async with self._async_engine.begin() as aconn:
-			await aconn.run_sync(self._decl_base.metadata.create_all)
+			await aconn.run_sync(self._decl_base.metadata.create_all)  # type:ignore
 
 	@_raise_on_uninitialized
-	def drop(self):
+	def drop(self) -> None:
 		if self._decl_base is None:
 			raise ValueError("drop called when decl_base is None")
 
@@ -160,42 +147,42 @@ class Database:
 			self._decl_base.metadata.drop_all(conn)
 
 	@_raise_on_uninitialized
-	async def adrop(self):
+	async def adrop(self) -> None:
 		if self._decl_base is None:
 			raise ValueError("drop called when decl_base is None")
 
 		async with self._async_engine.begin() as aconn:
-			await aconn.run_sync(self._decl_base.metadata.drop_all)
+			await aconn.run_sync(self._decl_base.metadata.drop_all)  # type:ignore
 
 	@property
 	@_raise_on_uninitialized
-	def asession_unsafe(self) -> _ASM:
+	def asession_unsafe(self) -> async_contextmgr[AsyncSession]:
 		return self._async_session_factory()
 
 	@property
 	@_raise_on_uninitialized
-	def asession_safe(self) -> _ASM:
+	def asession_safe(self) -> async_contextmgr[AsyncSession]:
 		return _asafe(self._async_session_factory)
 
 	@property
-	def asession(self) -> _ASM:
+	def asession(self) -> async_contextmgr[AsyncSession]:
 		return self.asession_safe if self._implicit_safe else self.asession_unsafe
 
 	@property
-	def async_session(self) -> _ASM:
+	def async_session(self) -> async_contextmgr[AsyncSession]:
 		return self.asession
 
 	@property
-	def session_unsafe(self) -> _SSM:
+	def session_unsafe(self) -> contextmgr[Session]:
 		return self._sync_session_factory()
 
 	@property
-	def session_safe(self) -> _SSM:
+	def session_safe(self) -> contextmgr[Session]:
 		return _safe(self._sync_session_factory)
 
 	@property
 	@_raise_on_uninitialized
-	def session(self) -> _SSM:
+	def session(self) -> contextmgr[Session]:
 		return self.session_safe if self._implicit_safe else self.session_unsafe
 
 	async def aclose(self):
@@ -209,42 +196,35 @@ class Database:
 			get_logger("db").debug("disposed of sync engine")
 
 
-def _safe(sm: sessionmaker[Session]) -> _SSM:
-	@contextmanager
-	def _() -> Generator[Session]:
-		session: Session = None
+@contextmanager
+def _safe(sm: sessionmaker[Session]) -> Generator[Session]:
+	session = None
 
-		try:
-			session = sm()
-			yield session
-			session.commit()
-		except:
-			if session is not None:
-				session.rollback()
-			raise
-		finally:
-			if session is not None:
-				session.close()
-
-	return _()
+	try:
+		session: Session = sm()
+		yield session
+		session.commit()
+	except:
+		if session is not None:
+			session.rollback()
+		raise
+	finally:
+		if session is not None:
+			session.close()
 
 
-def _asafe(asm: async_sessionmaker[AsyncSession]) -> _ASM:
+@asynccontextmanager
+async def _asafe(asm: async_sessionmaker[AsyncSession]) -> AsyncGenerator[AsyncSession]:
+	session = None
 
-	@asynccontextmanager
-	async def _() -> AsyncGenerator[AsyncSession]:
-		session: AsyncSession = None
-
-		try:
-			session = asm()
-			yield session
-			await session.commit()
-		except:
-			if session is not None:
-				await session.rollback()
-			raise
-		finally:
-			if session is not None:
-				await session.close()
-
-	return _()
+	try:
+		session: AsyncSession = asm()
+		yield session
+		await session.commit()
+	except:
+		if session is not None:
+			await session.rollback()
+		raise
+	finally:
+		if session is not None:
+			await session.close()

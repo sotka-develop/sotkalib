@@ -1,4 +1,4 @@
-from pydantic import BaseModelfrom datetime import timezonefrom sotkalib.time import dtfunc
+from sotkalib.redis.pool import RedisPoolfrom pydantic import BaseModelfrom datetime import timezonefrom sotkalib.time import dtfunc
 
 # sotkalib
 
@@ -193,18 +193,30 @@ class Serializer(Protocol):
 Redis-based distributed lock with three acquisition phases: spin (tight loop, no delay), single attempt, and wait (with backoff). Define a base, derive per-use variants.
 
 ```python
-from sotkalib.redis import DistributedLock, DLSettings
+from sotkalib.redis.locker import DistributedLock, DLSettings, exponential_delay
+from sotkalib.redis.pool import RedisPool
 
 # base instance
-Locker = DistributedLock(pool, DLSettings())
+Locker = DistributedLock(RedisPool(), DLSettings())
 
-# use
-async with Locker.wait(timeout=30.0, backoff=exponential_delay(0.1, 2)).acquire("resource:123", ttl=10):
-	...  # lock held
 
-# shorthand
-async with Locker.spin(attempts=100).no_wait().acq("resource:123", timeout=5):
-	...
+
+async def main():
+    async with (
+		Locker
+		.wait(timeout=30.0, backoff=exponential_delay(0.1, 2))
+		.acquire("resource:123", ttl=10)
+	):
+        ...  # lock held
+    
+    # shorthand
+    async with (
+		Locker
+		.spin(attempts=100)
+		.no_wait()
+		.acq("resource:123", timeout=5)
+	):
+        ...
 ```
 
 Builder methods: `.wait()`, `.no_wait()`, `.spin()`, `.if_taken()`, `.exc()`
@@ -212,7 +224,7 @@ Builder methods: `.wait()`, `.no_wait()`, `.spin()`, `.if_taken()`, `.exc()`
 Backoff helpers:
 
 ```python
-from sotkalib.redis import plain_delay, additive_delay, exponential_delay
+from sotkalib.redis.locker import plain_delay, additive_delay, exponential_delay
 
 plain_delay(0.5)               # constant 0.5s
 additive_delay(0.1, 0.1)      # 0.1, 0.2, 0.3, ...
@@ -228,7 +240,9 @@ Raises `ContextLockError` on failure. The `.can_retry` attribute indicates wheth
 aiohttp wrapper with configurable retry logic, status code handling, exception routing, and a middleware pipeline. Like the Redis utilities, define a base `HTTPSession` and derive variants via settings or middleware.
 
 ```python
+import asyncio
 from http import HTTPStatus
+from aiohttp import ServerDisconnectedError, ContentTypeError
 from sotkalib.http import HTTPSession, ClientSettings, StatusSettings, ExceptionSettings
 
 # base config -- define once
@@ -253,13 +267,16 @@ client = HTTPSession(ClientSettings(
 # branch from base config with |
 base = ClientSettings(timeout=10.0, maximum_retries=3)
 
-async with (
-    base 
-    | ClientSettings(maximum_retries=5) 
-    | StatusSettings(not_found_as_none=False)
-) as http:
-    resp = await http.get("https://api.example.com/users/1")
-    data = await http.post("https://api.example.com/users", json=payload)
+async def main():
+	async with (
+            base 
+            | ClientSettings(maximum_retries=5) 
+            | StatusSettings(not_found_as_none=False)
+	) as http:
+		resp = await http.get("https://api.example.com/users/1")
+		data = await http.post("https://api.example.com/users", json={"User": "Me"})
+	
+asyncio.run(main())
 ```
 
 #### Middleware
@@ -267,6 +284,10 @@ async with (
 Middleware wraps the request pipeline. Each middleware receives a `RequestContext` and a `next` callable. `.use()` is generic -- a middleware can change the session's return type. The base `HTTPSession` returns `aiohttp.ClientResponse | None`; a middleware that deserializes JSON can produce an `HTTPSession[dict]`, etc.
 
 ```python
+import asyncio
+from http import HTTPStatus
+from sotkalib.http import HTTPSession, ClientSettings, StatusSettings, ExceptionSettings, RequestContext
+
 async def auth_middleware(ctx: RequestContext, next):
     ctx.merge_headers({"Authorization": "Bearer ..."})
     return await next(ctx)
@@ -286,8 +307,11 @@ async def json_middleware(ctx: RequestContext, next) -> dict:
 
 json_client: HTTPSession[dict] = HTTPSession().use(auth_middleware).use(json_middleware)
 
-async with json_client as http:
-    data: dict = await http.get("https://api.example.com/users/1")
+async def main():
+    async with json_client as http:
+        data: dict = await http.get("https://api.example.com/users/1")
+		
+asyncio.run(main())
 ```
 
 `RequestContext` exposes: `method`, `url`, `attempt`, `max_attempts`, `response`, `elapsed`, `attempt_elapsed`, `is_retry`, `status`, `errors`, `last_error`, `state` (arbitrary dict for middleware to share data).
@@ -345,8 +369,19 @@ except Exception as e:
 ```python
 from sotkalib.func import or_raise, type_or_raise
 
-user = or_raise(maybe_none, "user not found")     # raises ValueError if None
-port = type_or_raise(value, int, "port must be int")  # raises TypeError
+class User(object):...
+
+def get_user() -> User | None: ...
+
+user_res = get_user()
+
+# raises ValueError if None, user inferred as User
+user = or_raise(user_res, "user not found") 
+
+value: float = 1.0
+
+# raises TypeError, port inferred as int
+port = type_or_raise(value, int, "port must be int")  
 ```
 
 #### `suppress`
@@ -356,11 +391,15 @@ Context manager with two modes:
 ```python
 from sotkalib.func import suppress
 
+def risky():
+	raise RuntimeError
+
 with suppress():  # suppresses all exceptions
 	risky()
 
-with suppress(mode="exact", exact_types=[KeyError, IndexError]):  # only these types (exact match, not subclasses)
-	d["missing"]
+d = {}
+with suppress(mode="exact", exact_types=(KeyError,)):  # only these types (exact match, not subclasses)
+	_ = d["missing"]
 ```
 
 #### Async checks
@@ -380,23 +419,26 @@ asyncfn_or_raise(my_func)   # raises TypeError if not
 from sotkalib.func import defer, defer_ok, defer_exc, defer_exc_mute
 
 async def coro(): ...
+async def coro2(): ...
+async def coro3(): ...
+
 
 # awaited in finally (always runs)
-async with defer(coro()):     
+async with defer(coro(), coro2(), coro3()):     
     ...
 
 # awaited only if no exception
-async with defer_ok(coro()):   
+async with defer_ok(coro(), coro2(), coro3()):   
     ...
 
 # awaited only if exception raised
 # -> bubbles exception up
-async with defer_exc(coro()):  
+async with defer_exc(coro(), coro2(), coro3()):  
     ...
 
 # awaited only if exception raised
 # -> silences exception
-async with defer_exc_mute(coro()):    # awaited only if no exception
+async with defer_exc_mute(coro(), coro2(), coro3()):    # awaited only if no exception
     ...
 ```
 

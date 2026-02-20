@@ -3,9 +3,9 @@ import typing
 from collections.abc import Mapping
 from inspect import Parameter
 
-from ._compat import _compatible, _tname
+from ..unset import Unset, is_set
+from ._compat import _tname, compatible
 from ._extr import MethodKind, _get_raw, _get_type_hints
-from .unset import Unset, is_set
 
 
 def _check_signatures(  # noqa: PLR0912
@@ -80,7 +80,7 @@ def _check_meth_rtype(name: str, _trtype: typing.Any, _prtype: typing.Any) -> st
 		and _prtype is not inspect.Parameter.empty
 		and is_set(_trtype)
 		and _trtype is not inspect.Parameter.empty
-		and not _compatible(_prtype, _trtype)
+		and not compatible(_prtype, _trtype)
 	):
 		return f"expected {_tname(_prtype)} as a return type of method `{name}`, got {_tname(_trtype)}"
 	return None
@@ -102,7 +102,7 @@ def _check_param_annot(name: str, tparam: Parameter, pparam: Parameter) -> str |
 	if (
 		pparam.annotation is not inspect.Parameter.empty
 		and tparam.annotation is not inspect.Parameter.empty
-		and not _compatible(pparam.annotation, tparam.annotation)
+		and not compatible(pparam.annotation, tparam.annotation)
 	):
 		return (
 			f"expected annotated parameter `{pparam.name}` on method `{name}` "
@@ -112,26 +112,30 @@ def _check_param_annot(name: str, tparam: Parameter, pparam: Parameter) -> str |
 
 
 def _attrs_incompat(attr: str, pth: dict, tth: dict) -> bool:
-	return attr in pth and attr in tth and not _compatible(pth[attr], tth[attr])
+	return attr in pth and attr in tth and not compatible(pth[attr], tth[attr])
 
 
 def _check_missing(
 	name: str,
 	proto: type,
-	protohints: dict,
-	typhints: dict,
+	proto_hints: dict,
+	cls_hints: dict,
 	type_hints: bool = True,
 ) -> str | None:
 	raw = _get_raw(proto, name)
-	if isinstance(raw, property) and name in typhints:
+	if isinstance(raw, property) and name in cls_hints:
 		# annotation satisfies property, but check type
 		if type_hints and raw.fget:
 			proto_ret = _get_type_hints(raw.fget).get("return")
-			if proto_ret and not _compatible(proto_ret, typhints[name]):
-				return f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(typhints[name])}"
+			if proto_ret and not compatible(proto_ret, cls_hints[name]):
+				return f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(cls_hints[name])}"
 		return None
-	if name in protohints and name not in typhints:
-		return f"expected annotated attribute `{name}` (type={_tname(protohints[name])}), found none"
+	if name in proto_hints and name not in cls_hints:
+		return f"expected annotated attribute `{name}` (type={_tname(proto_hints[name])}), found none"
+	if name in proto_hints and name in cls_hints:
+		if not compatible(proto_hints[name], cls_hints[name]):
+			return f"expected annotated attribute `{name}` to be compatible to type {_tname(proto_hints[name])}, got {_tname(cls_hints[name])}"
+		return None
 	return f"expected member `{name}`"
 
 
@@ -156,7 +160,7 @@ def _check_property(
 	proto_type = proto_typehints.get(name)
 	if proto_type is None and protombr:
 		proto_type = _get_type_hints(protombr).get("return")
-	if proto_type and name in cls_typehints and not _compatible(proto_type, cls_typehints[name]):
+	if proto_type and name in cls_typehints and not compatible(proto_type, cls_typehints[name]):
 		return [f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(cls_typehints[name])}"]
 	return []
 
@@ -171,7 +175,7 @@ def _check_two_props(
 		return []
 	proto_ret = _get_type_hints(proto_fget).get("return")
 	typ_ret = _get_type_hints(typ_fget).get("return")
-	if proto_ret and typ_ret and not _compatible(proto_ret, typ_ret):
+	if proto_ret and typ_ret and not compatible(proto_ret, typ_ret):
 		return [f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(typ_ret)}"]
 	return []
 
@@ -181,23 +185,26 @@ def _check_two_props(
 
 def _check_method_kind(
 	name: str,
-	proto_kind: MethodKind,
-	typ_kind: MethodKind,
+	protombr_kind: MethodKind,
+	clsmbr_kind: MethodKind,
 ) -> str | None:
 	"""staticmethod/classmethod kind mismatch."""
-	if proto_kind in ("static", "classmethod") and proto_kind != typ_kind:
-		return f"expected `{name}` to be {proto_kind}, found {typ_kind}"
+	if protombr_kind in ("static", "classmethod") and protombr_kind != clsmbr_kind:
+		return f"expected `{name}` to be {protombr_kind}, found {clsmbr_kind}"
 	return None
 
 
 def _check_callable(
 	name: str,
+	# //
 	protombr: typing.Any,
-	clsmbr: typing.Any,
 	protombr_unwrapped: typing.Any,
-	clsmbr_unwrapped: typing.Any,
 	protombr_kind: MethodKind,
+	# //
+	clsmbr: typing.Any,
+	clsmbr_unwrapped: typing.Any,
 	clsmbr_kind: MethodKind,
+	# //
 	disallow_extra: bool,
 	signatures: bool,
 ) -> list[str]:
@@ -209,3 +216,14 @@ def _check_callable(
 		return _check_signatures(name, p, t, disallow_extra)
 
 	return []
+
+
+def _check_annot_attrs(attr: str, cls: type, cls_typehints: dict, protombr_type: type, type_hints: bool):
+	if not hasattr(cls, attr) and attr not in cls_typehints:
+		return f"expected annotated attribute `{attr}` (type={_tname(protombr_type)})"
+	elif hasattr(cls, attr) and callable(getattr(cls, attr)) and attr not in cls_typehints:
+		return f"expected `{attr}` to be a data attribute, found callable"
+	elif type_hints and attr in cls_typehints and not compatible(protombr_type, cls_typehints[attr]):
+		return f"expected annotated attribute `{attr}` to be of type {_tname(protombr_type)}, found {_tname(cls_typehints[attr])}"
+
+	return None

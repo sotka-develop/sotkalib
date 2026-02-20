@@ -1,8 +1,10 @@
 import pytest
 from redis.asyncio import Redis
 
-from sotkalib.redis.lru import B64Pickle, LRUSettings, RedisLRU
+from sotkalib.redis.lru import LRUSettings, RedisLRU
 from sotkalib.redis.pool import RedisPool, RedisPoolSettings
+from sotkalib.serializer.impl.pickle import B64Pickle, SecurityWarning
+from sotkalib.type.generics import strlike
 
 
 @pytest.mark.asyncio
@@ -24,7 +26,9 @@ async def test_lru_caches_function_result(redis_url: str):
 		call_count += 1
 		return x * 2
 
-	result1 = await expensive_computation(5)
+	with pytest.warns(SecurityWarning):
+		result1 = await expensive_computation(5)
+
 	assert result1 == 10
 	assert call_count == 1
 
@@ -52,11 +56,13 @@ async def test_lru_different_args_different_cache(redis_url: str):
 		call_count += 1
 		return a + b
 
-	result1 = await add(1, 2)
+	with pytest.warns(SecurityWarning):
+		result1 = await add(1, 2)
 	assert result1 == 3
 	assert call_count == 1
 
-	result2 = await add(3, 4)
+	with pytest.warns(SecurityWarning):
+		result2 = await add(3, 4)
 	assert result2 == 7
 	assert call_count == 2  # Different args, so function was called again
 
@@ -76,7 +82,8 @@ async def test_lru_with_ttl(redis_url: str, redis_client: Redis):
 	async def get_value() -> str:
 		return "cached_value"
 
-	await get_value()
+	with pytest.warns(SecurityWarning):
+		await get_value()
 
 	# Verify TTL was set on the cache key
 	key = "ttl_test:1:get_value:()"
@@ -111,11 +118,13 @@ async def test_lru_with_version(redis_url: str):
 		call_count += 1
 		return "v2_result"
 
-	result1 = await compute_v1()
+	with pytest.warns(SecurityWarning):
+		result1 = await compute_v1()
 	assert result1 == "v1_result"
 	assert call_count == 1
 
-	result2 = await compute_v2()
+	with pytest.warns(SecurityWarning):
+		result2 = await compute_v2()
 	assert result2 == "v2_result"
 	assert call_count == 2  # Different version, different cache
 
@@ -135,10 +144,12 @@ async def test_lru_serializer_round_trip(redis_url: str):
 	async def get_complex_data() -> dict:
 		return {"nested": {"key": [1, 2, 3]}, "value": "test"}
 
-	result1 = await get_complex_data()
+	with pytest.warns(SecurityWarning):
+		result1 = await get_complex_data()
 	assert result1 == {"nested": {"key": [1, 2, 3]}, "value": "test"}
 
 	# Call again to get from cache
+
 	result2 = await get_complex_data()
 	assert result2 == {"nested": {"key": [1, 2, 3]}, "value": "test"}
 
@@ -162,7 +173,8 @@ async def test_lru_with_kwargs(redis_url: str):
 		call_count += 1
 		return f"{greeting}, {name}!"
 
-	result1 = await greet("Alice", greeting="Hi")
+	with pytest.warns(SecurityWarning):
+		result1 = await greet("Alice", greeting="Hi")
 	assert result1 == "Hi, Alice!"
 	assert call_count == 1
 
@@ -170,7 +182,8 @@ async def test_lru_with_kwargs(redis_url: str):
 	assert result2 == "Hi, Alice!"
 	assert call_count == 1  # Cached
 
-	result3 = await greet("Alice", greeting="Hey")
+	with pytest.warns(SecurityWarning):
+		result3 = await greet("Alice", greeting="Hey")
 	assert result3 == "Hey, Alice!"
 	assert call_count == 2  # Different kwargs, not cached
 
@@ -234,14 +247,14 @@ async def test_lru_with_custom_serializer(redis_url: str):
 		unmarshal_called = False
 
 		@staticmethod
-		def marshal(data) -> bytes:
+		def marshal(data) -> strlike:
 			JsonSerializer.marshal_called = True
 			import json
 
 			return json.dumps(data).encode()
 
 		@staticmethod
-		def unmarshal(raw_data: bytes):
+		def unmarshal(raw_data: strlike):
 			JsonSerializer.unmarshal_called = True
 			import json
 
@@ -268,7 +281,8 @@ async def test_lru_with_custom_serializer(redis_url: str):
 def test_b64pickle_marshal_unmarshal():
 	"""B64Pickle correctly round-trips data."""
 	original = {"nested": [1, 2, 3], "key": "value"}
-	marshaled = B64Pickle.marshal(original)
+	with pytest.warns(SecurityWarning):
+		marshaled = B64Pickle.marshal(original)
 	assert isinstance(marshaled, bytes)
 
 	unmarshaled = B64Pickle.unmarshal(marshaled)
@@ -289,7 +303,8 @@ def test_b64pickle_handles_various_types():
 	]
 
 	for original in test_cases:
-		marshaled = B64Pickle.marshal(original)
+		with pytest.warns(SecurityWarning):
+			marshaled = B64Pickle.marshal(original)
 		unmarshaled = B64Pickle.unmarshal(marshaled)
 		assert unmarshaled == original
 

@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.1.6.post1"
+version = "0.2.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
@@ -11,8 +11,17 @@ dependencies = [
     "loguru>=0.7.3",
     "orjson>=3.11.7",
     "pydantic>=2.12.0",
+]
+
+[project.optional-dependencies]
+redis = [
     "redis>=6.4.0,<8.0.0",
+]
+sqla = [
     "sqlalchemy[asyncio]>=2.0.0",
+]
+msgspec = [
+    "msgspec>=0.20.0",
 ]
 
 [dependency-groups]
@@ -25,6 +34,7 @@ dev = [
     "ruff>=0.14.9",
     "testcontainers>=4.14.1",
     "yappi>=1.7.3",
+    "sotkalib[redis,sqla,msgspec]",
 ]
 
 [build-system]

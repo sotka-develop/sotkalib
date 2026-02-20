@@ -12,7 +12,7 @@ async def _await(to_await: Awaitable | Sequence[Awaitable]):
 
 
 @asynccontextmanager
-async def defer(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[None]:
+async def defer(*to_await: Awaitable) -> AsyncGenerator[None]:
 	try:
 		yield
 	finally:
@@ -20,7 +20,7 @@ async def defer(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[Non
 
 
 @asynccontextmanager
-async def defer_ok(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[None]:
+async def defer_ok(*to_await: Awaitable) -> AsyncGenerator[None]:
 	try:
 		yield
 	except:
@@ -30,7 +30,7 @@ async def defer_ok(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[
 
 
 @asynccontextmanager
-async def defer_exc(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[None]:
+async def defer_exc(*to_await: Awaitable) -> AsyncGenerator[None]:
 	try:
 		yield
 	except:
@@ -39,7 +39,7 @@ async def defer_exc(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator
 
 
 @asynccontextmanager
-async def defer_exc_mute(to_await: Awaitable | Sequence[Awaitable]) -> AsyncGenerator[None]:
+async def defer_exc_mute(*to_await: Awaitable) -> AsyncGenerator[None]:
 	try:
 		yield
 	except Exception as e:

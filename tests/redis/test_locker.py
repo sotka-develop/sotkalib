@@ -12,6 +12,7 @@ from sotkalib.redis.locker import (
 	plain_delay,
 )
 from sotkalib.redis.pool import RedisPool, RedisPoolSettings
+from sotkalib.type.iface import DoesNotImplementError
 
 # ── Backoff functions ──────────────────────────────────────────────
 
@@ -322,6 +323,23 @@ async def test_strable_key(redis_url: str, redis_client: Redis):
 	async with lock.acquire(MyKey()):
 		val = await redis_client.get("test:locker:strable")
 		assert val is not None
+
+	val = await redis_client.get("test:locker:strable")
+	assert val is None
+
+
+@pytest.mark.asyncio
+async def test_nonstrable_key(redis_url: str, redis_client: Redis):
+	lock = DistributedLock(redis_client)
+
+	class MyKey:
+		def __str__(self) -> int:
+			return 44
+
+	with pytest.raises(DoesNotImplementError):
+		async with lock.acquire(MyKey()):
+			val = await redis_client.get("test:locker:strable")
+			assert val is not None
 
 	val = await redis_client.get("test:locker:strable")
 	assert val is None

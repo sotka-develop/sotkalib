@@ -2,7 +2,7 @@ from typing import Any, Protocol
 
 import pytest
 
-from sotkalib.type import DoesNotImplementError, implements
+from sotkalib.type.iface import DoesNotImplementError, implements
 
 # ============================================================
 # exception
@@ -932,3 +932,64 @@ class TestEdgeCases:
 
 		# should not crash
 		implements(list, Sized)
+
+
+# ============================================================
+# protocol-typed annotations
+# ============================================================
+
+
+class TestProtocolTypedAnnotations:
+	def test_attr_typed_as_protocol_satisfied(self):
+		class Strable(Protocol):
+			def __str__(self) -> str: ...
+
+		class Proto(Protocol):
+			attr: Strable
+
+		class Impl:
+			attr: str = "hello"
+
+		implements(Impl, Proto)
+
+	def test_attr_typed_as_protocol_not_satisfied(self):
+		class HasFoo(Protocol):
+			def foo(self) -> int: ...
+
+		class Proto(Protocol):
+			attr: HasFoo
+
+		class Impl:
+			attr: str = "hello"
+
+		with pytest.raises(DoesNotImplementError):
+			implements(Impl, Proto)
+
+	def test_attr_typed_as_protocol_union_all_satisfy(self):
+		class Strable(Protocol):
+			def __str__(self) -> str: ...
+
+		class Proto(Protocol):
+			attr: Strable
+
+		class Impl:
+			attr: str | int | float
+
+		implements(Impl, Proto)
+
+	def test_attr_typed_as_protocol_union_partial_fail(self):
+		class HasFoo(Protocol):
+			def foo(self) -> int: ...
+
+		class Good:
+			def foo(self) -> int:
+				return 1
+
+		class Proto(Protocol):
+			attr: HasFoo
+
+		class Impl:
+			attr: Good | str  # str doesn't have foo
+
+		with pytest.raises(DoesNotImplementError):
+			implements(Impl, Proto)
