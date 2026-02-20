@@ -1,3 +1,5 @@
+"""requires sotkalib[sqla] extra to be installed"""
+
 from .db import Database, DatabaseSettings
 from .dbm import BasicDBM
 from .repo import BaseRepository, NotFoundError

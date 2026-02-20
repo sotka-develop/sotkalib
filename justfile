@@ -35,7 +35,15 @@ tag-push SEMVER:
     git tag -a "{{ SEMVER }}" -m "release: {{ SEMVER }}"
     git push origin "{{ SEMVER }}"
 
-release SEMVER: sync lint (typecheck 'src') (test '-q' 'no') (bump SEMVER) (release-git SEMVER) (tag-push SEMVER)
+check-changelog SEMVER:
+    #!/usr/bin/env bash
+    if ! grep -q "## {{ SEMVER }}" CHANGELOG.md; then
+        echo "ERROR: CHANGELOG.md has no entry for {{ SEMVER }}"
+        echo "Add a '## {{ SEMVER }}' section before releasing."
+        exit 1
+    fi
+
+release SEMVER: (check-changelog SEMVER) sync lint (typecheck 'src') (test '-q' 'no') (bump SEMVER) (release-git SEMVER) (tag-push SEMVER)
 
 # let it be down here, it breaks syntax highlighting in Zed :D
 

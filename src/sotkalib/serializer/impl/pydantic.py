@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
-from . import _typed_serializer_generic_mixin
+from .mixin import TypedSerializerGenericMixin
 
 
-class PydanticSerializer[T: BaseModel](_typed_serializer_generic_mixin):
+class PydanticSerializer[T: BaseModel](TypedSerializerGenericMixin):
 	def marshal(self, data: T) -> bytes:  # noqa
 		return data.model_dump_json(
 			exclude_unset=True,

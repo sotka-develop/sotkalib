@@ -839,7 +839,7 @@ wheels = [
 
 [[package]]
 name = "sotkalib"
-version = "0.2.0"
+version = "0.2.0.post1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -890,7 +890,7 @@ provides-extras = ["redis", "sqla", "msgspec"]
 dev = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
-    { name = "pyrefly", specifier = ">=0.45.2" },
+    { name = "pyrefly", specifier = ">=0.50.0" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
     { name = "ruff", specifier = ">=0.14.9" },

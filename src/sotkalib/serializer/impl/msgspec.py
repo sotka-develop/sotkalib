@@ -1,10 +1,12 @@
+"""requires sotkalib[msgspec] extra to be installed"""
+
 from typing import Any
 
 import msgspec.json as msgspec_json
 import msgspec.msgpack as msgspec_msgpack
 from msgspec import Struct
 
-from . import _typed_serializer_generic_mixin
+from .mixin import TypedSerializerGenericMixin
 
 
 class MSJSONSerializer:
@@ -27,7 +29,7 @@ class MsgpackSerializer:
 		return msgspec_msgpack.decode(raw_data)
 
 
-class TypedMSJSONSerializer[T: Struct](_typed_serializer_generic_mixin):
+class TypedMSJSONSerializer[T: Struct](TypedSerializerGenericMixin):
 	def marshal(self, data: T) -> bytes:
 		return msgspec_json.encode(data)
 
@@ -35,7 +37,7 @@ class TypedMSJSONSerializer[T: Struct](_typed_serializer_generic_mixin):
 		return msgspec_json.decode(raw_data, type=self.type_)
 
 
-class TypedMsgpackSerializer[T: Struct](_typed_serializer_generic_mixin):
+class TypedMsgpackSerializer[T: Struct](TypedSerializerGenericMixin):
 	def marshal(self, data: T) -> bytes:
 		return msgspec_msgpack.encode(data)
 
