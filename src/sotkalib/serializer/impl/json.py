@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 
-class StdJSONSerializer:
+class StdJsonSerializer:
 	@staticmethod
 	def marshal(data: Any) -> bytes:
 		return json.dumps(data).encode()

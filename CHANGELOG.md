@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.1
+
+- Added `func.importutil` module for comfortable work with low-level importing
+- Added `ormsgpack` optional dependency, `impl.ormsgpack.OrmsgpackSerializer` with ability to modify option parameter passed.
+- Added ability to modify enc/dec hooks for `msgspec` serializers.
+
 ## v0.2.0.post1
 
 - Fixed autoloading of optional packages on `sotkalib` import
