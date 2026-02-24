@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.3
+
+- Added `valid(type | object)` method to `CheckableProtocol` with type narrowing.
+
 ## v0.2.2
 
 - Added `infer: bool = False` parameter to `iface.implements()`, deprecated `early` parameter. Now with `infer` (or `early`) set to True, function returns not only if the type is valid for the interface, but also hints static type checkers that it is implemented.
