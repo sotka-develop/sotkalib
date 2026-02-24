@@ -1,115 +1,28 @@
-import time
-from collections.abc import Callable, Coroutine, Mapping, Sequence
+from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import Any, Literal, Self
-from warnings import warn
+from warnings import deprecated
 
-import aiohttp
 from aiohttp import client_exceptions
 from pydantic import BaseModel, ConfigDict, Field
 
-type Next[T] = Callable[[RequestContext], Coroutine[None, None, T]]
-type Middleware[T, R] = Callable[[RequestContext, Next[T]], Coroutine[None, None, R]]
-type ArgumentFunc = Callable[[RequestContext], tuple[Sequence[Any], Mapping[str, Any] | None]]
+from .context import RequestContext
+from .types import ArgsKwargs, ArgumentFunc, CriticalStatusError
 
 
-class RanOutOfAttemptsError(Exception):
-	pass
-
-
-class CriticalStatusError(Exception):
-	pass
-
-
-class StatusRetryError(Exception):
-	status: int
-	context: str
-
-	def __init__(self, status: int, context: str) -> None:
-		super().__init__(f"{status}: {context}")
-		self.status = status
-		self.context = context
-
-
-@dataclass
-class RequestContext:
-	method: str
-	url: str
-	params: dict[str, Any] | None = None
-	headers: dict[str, Any] | None = None
-	data: Any = None
-	json: Any = None
-	kwargs: dict[str, Any] = field(default_factory=dict)
-
-	attempt: int = 0
-	max_attempts: int = 1
-
-	response: aiohttp.ClientResponse | None = None
-	response_body: Any = None
-	response_text: str | None = None
-	response_json: Any = None
-
-	started_at: float | None = None
-	finished_at: float | None = None
-	attempt_started_at: float | None = None
-
-	errors: list[Exception] = field(default_factory=list)
-	last_error: Exception | None = None
-
-	state: dict[str, Any] = field(default_factory=dict)
-
-	@property
-	def elapsed(self) -> float | None:
-		if self.started_at is None:
-			return None
-		end = self.finished_at if self.finished_at else time.monotonic()
-		return end - self.started_at
-
-	@property
-	def attempt_elapsed(self) -> float | None:
-		if self.attempt_started_at is None:
-			return None
-		return time.monotonic() - self.attempt_started_at
-
-	@property
-	def is_retry(self) -> bool:
-		return self.attempt > 0
-
-	@property
-	def status(self) -> int | None:
-		return self.response.status if self.response else None
-
-	def merge_headers(self, headers: dict[str, str]) -> None:
-		if self.headers is None:
-			self.headers = {}
-		self.headers.update(headers)
-
-	def to_request_kwargs(self) -> dict[str, Any]:
-		kw = dict(self.kwargs)
-		if self.params is not None:
-			kw["params"] = self.params
-		if self.headers is not None:
-			kw["headers"] = self.headers
-		if self.data is not None:
-			kw["data"] = self.data
-		if self.json is not None:
-			kw["json"] = self.json
-		return kw
-
-
-async def default_stat_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
+async def default_stat_arg_func(ctx: RequestContext) -> ArgsKwargs:
 	resp = ctx.response
 	if resp is None:
-		return (), None
-	return (f"[{resp.status}]; {await resp.text()=}",), None
+		return (), {}
+	return (f"[{resp.status}]; {await resp.text()=}",), {}
 
 
-def default_exc_arg_func(ctx: RequestContext) -> tuple[Sequence[Any], None]:
+async def default_exc_arg_func(ctx: RequestContext) -> ArgsKwargs:
 	return (
-		f"exception {type(ctx.last_error)}: ({ctx.last_error=}) attempt={ctx.attempt}; url={ctx.url} method={ctx.method}"
-	), None
+		f"exception {type(ctx.last_error)}: ({ctx.last_error=}) attempt={ctx.attempt}; url={ctx.url}"
+		f" method={ctx.method}"
+	), {}
 
 
 class _MergeableSettings(BaseModel):
@@ -197,12 +110,8 @@ class ClientSettings(_MergeableSettings):
 
 		return NotImplemented
 
+	@deprecated("ClientSettings.with_() is deprecated, use the | operator instead")
 	def with_(self, **kws) -> Self:
-		warn(
-			"ClientSettings.with_() is deprecated, use the | operator instead",
-			DeprecationWarning,
-			stacklevel=2,
-		)
 		ns = deepcopy(self)
 		for k, v in kws.items():
 			if "." in k:

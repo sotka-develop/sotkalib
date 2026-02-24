@@ -3,14 +3,12 @@ from .client_session import (
 	Middleware,
 	Next,
 )
-from .models import (
-	ClientSettings,
+from .context import RequestContext
+from .models import ClientSettings, ExceptionSettings, StatusSettings
+from .types import (
 	CriticalStatusError,
-	ExceptionSettings,
 	RanOutOfAttemptsError,
-	RequestContext,
 	StatusRetryError,
-	StatusSettings,
 )
 
 __all__ = (

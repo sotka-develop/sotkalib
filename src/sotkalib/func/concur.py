@@ -1,9 +1,9 @@
 import inspect
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeIs
 
 
-def asyncfn(fn: Callable[..., Any]) -> bool:
+def asyncfn(fn: Callable[..., Any]) -> TypeIs[Callable[..., Coroutine[Any, Any, Any]]]:
 	return inspect.iscoroutinefunction(fn)
 
 

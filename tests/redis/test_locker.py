@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 import pytest
 from redis.asyncio import Redis
@@ -12,7 +13,6 @@ from sotkalib.redis.locker import (
 	plain_delay,
 )
 from sotkalib.redis.pool import RedisPool, RedisPoolSettings
-from sotkalib.type.iface import DoesNotImplementError
 
 # ── Backoff functions ──────────────────────────────────────────────
 
@@ -336,7 +336,7 @@ async def test_nonstrable_key(redis_url: str, redis_client: Redis):
 		def __str__(self) -> int:
 			return 44
 
-	with pytest.raises(DoesNotImplementError):
+	with pytest.raises(TypeError, match=".*does not implement strable"):
 		async with lock.acquire(MyKey()):
 			val = await redis_client.get("test:locker:strable")
 			assert val is not None
@@ -470,10 +470,8 @@ async def test_release_only_own_lock(redis_url: str, redis_client: Redis):
 	await redis_client.set(key, "holder_b_token", ex=30)
 
 	# holder A releases (finally block) — should NOT delete holder B's key
-	try:
+	with contextlib.suppress(Exception):
 		await ctx.__aexit__(None, None, None)
-	except Exception:
-		pass
 
 	val = await redis_client.get(key)
 	assert val == "holder_b_token"

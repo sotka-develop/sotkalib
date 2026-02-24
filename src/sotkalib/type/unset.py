@@ -1,6 +1,6 @@
 """module containing unset sentinel type/value"""
 
-from warnings import warn
+from typing import TypeIs
 
 
 class UnsetT:
@@ -23,11 +23,5 @@ def is_set(val: object) -> bool:
 	return not isinstance(val, UnsetT)
 
 
-def unset(val: object) -> bool:
-	warn(
-		"sotkalib.type.unset() is deprecated and will be removed in 0.1.6, use not is_set(...) instead",
-		category=DeprecationWarning,
-		stacklevel=2,
-	)
-
-	return not is_set(val)
+def is_unset(val: object) -> TypeIs[UnsetT]:
+	return isinstance(val, UnsetT)

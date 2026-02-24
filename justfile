@@ -43,6 +43,8 @@ check-changelog SEMVER:
         exit 1
     fi
 
+    echo "Changelog for {{ SEMVER }} found, proceeding..."
+
 release SEMVER: (check-changelog SEMVER) sync lint (typecheck 'src') (test '-q' 'no') (bump SEMVER) (release-git SEMVER) (tag-push SEMVER)
 
 # let it be down here, it breaks syntax highlighting in Zed :D

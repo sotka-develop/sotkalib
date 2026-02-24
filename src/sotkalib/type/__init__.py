@@ -1,9 +1,8 @@
 from . import iface
-from .unset import Unset, UnsetT, _UnsetType, is_set, unset
+from .unset import Unset, UnsetT, _UnsetType, is_set
 
 __all__ = [
 	"Unset",
-	"unset",
 	"is_set",
 	"_UnsetType",
 	"UnsetT",

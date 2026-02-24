@@ -19,7 +19,8 @@ def add_cwd_in_path() -> Generator[None]:
 	so all python files are discoverable now, without installing
 	current project
 
-	:yield none
+	Yields:
+		None
 	"""
 	cwd = Path.cwd()
 	if str(cwd) in sys.path:
@@ -48,10 +49,12 @@ def import_object(object_spec: str, app_dir: str | None = None) -> Any:
 		ValueError: if spec has unknown format
 
 	Returns:
-		imported object
+		Imported object
 	"""
+	_min_params = 2
+
 	import_spec = object_spec.split(":")
-	if len(import_spec) != 2:
+	if len(import_spec) != _min_params:
 		raise ValueError("you should provide object path in `module:variable` format.")
 	with add_cwd_in_path():
 		if app_dir:
@@ -64,7 +67,8 @@ def import_from_modules(modules: list[str]) -> None:
 	"""
 	import all modules from modules variable.
 
-	:param modules: list of modules.
+	Args:
+		modules: List of module specifications.
 	"""
 	for module in modules:
 		try:

@@ -155,8 +155,8 @@ class BaseRepository[M: BasicDBM, PK]:
 
 		- **where**: `Sequence[ColumnElement[bool]]` - sequence of predicates to use with query
 		- **options**: `Sequence[selectinload | joinedload...]` - sequence of realtionship loads to apply to query
-		- **page**: `int` - (>0) query page
-		- **page_size**: `int` - (>0) query page size
+		- **page**: `int` - query page
+		- **page_size**: `int` - query page size
 		- **unique**: `bool` - whether to return unique results
 
 		**Return type**: `Sequence[M]`

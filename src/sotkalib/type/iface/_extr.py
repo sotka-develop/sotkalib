@@ -49,6 +49,7 @@ def _get_protocol_members(protocol: type) -> dict[str, typing.Any]:
 
 	# std:typing.py, L1939
 	"""
+
 	attrs = {}
 	for base in protocol.__mro__[:-1]:  # without object
 		if base.__name__ in {"Protocol", "Generic"}:

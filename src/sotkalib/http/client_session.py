@@ -1,19 +1,22 @@
 import asyncio
 import ssl
 import time
+from collections.abc import Coroutine
 from http import HTTPStatus
+from inspect import isawaitable
 from typing import Any, Self
 
 import aiohttp
 
-from sotkalib.log import get_logger
-
-from .models import (
-	ClientSettings,
+from ..log import get_logger
+from .context import (
+	RequestContext,
+)
+from .models import ClientSettings
+from .types import (
 	Middleware,
 	Next,
 	RanOutOfAttemptsError,
-	RequestContext,
 	StatusRetryError,
 )
 
@@ -133,7 +136,7 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 		if HTTPStatus(status) in settings.to_raise:
 			exc_cls = settings.exc_to_raise
-			args, kwargs = settings.args_for_exc_func(ctx)
+			args, kwargs = await await_if_async(settings.args_for_exc_func(ctx))
 			if kwargs is None:
 				raise exc_cls(*args)
 			raise exc_cls(*args, **kwargs)
@@ -194,11 +197,13 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		await asyncio.sleep(delay)
 
 	async def _handle_to_raise(self, ctx: RequestContext, e: Exception) -> None:
-		exc_cls = self.config.exception_settings.exc_to_raise
+		settings = self.config.exception_settings
+
+		exc_cls = settings.exc_to_raise
 		if exc_cls is None:
 			raise e
 
-		args, kwargs = self.config.exception_settings.args_for_exc_func(ctx)
+		args, kwargs = await await_if_async(settings.args_for_exc_func(ctx))
 		if kwargs is None:
 			raise exc_cls(*args) from e
 		raise exc_cls(*args, **kwargs) from e
@@ -273,3 +278,10 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 def merge_tuples[T](t1: tuple[T, ...], t2: tuple[T, ...]) -> tuple[T, ...]:
 	return t1 + t2
+
+
+async def await_if_async[T](res: T | Coroutine[Any, Any, T]) -> T:
+	if isawaitable(res):
+		return await res
+	else:
+		return res

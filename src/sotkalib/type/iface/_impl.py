@@ -1,6 +1,6 @@
-from typing import Literal, overload
+from typing import Any, Literal, TypeIs, overload
 
-from sotkalib.type.unset import Unset, is_set
+from sotkalib.type.unset import Unset, is_unset
 
 from ._checkers import (
 	_attrs_incompat,
@@ -19,48 +19,53 @@ from ._extr import _get_protocol_members, _get_raw, _get_type_hints, _unwrap_met
 
 
 @overload
-def implements(
-	cls: type,
-	proto: type,
+def implements[T: object](
+	cls: Any,
+	proto: type[T],
 	*,
 	signatures: bool = ...,
 	type_hints: bool = ...,
 	disallow_extra: bool = ...,
 	early: Literal[False] = False,
+	infer: Literal[False] = False,
 ) -> None: ...
 
 
 @overload
-def implements(
-	cls: type,
-	proto: type,
-	*,
-	signatures: bool = ...,
-	type_hints: bool = ...,
-	disallow_extra: bool = ...,
-) -> None: ...
-
-
-@overload
-def implements(
-	cls: type,
-	proto: type,
+def implements[T: object](
+	cls: type | object,
+	proto: type[T],
 	*,
 	signatures: bool = ...,
 	type_hints: bool = ...,
 	disallow_extra: bool = ...,
 	early: Literal[True],
-) -> bool: ...
+	infer: bool = ...,
+) -> TypeIs[T]: ...
 
 
-def implements(  # noqa
-	cls: type,
-	proto: type,
+@overload
+def implements[T: object](
+	cls: type | object,
+	proto: type[T],
+	*,
+	signatures: bool = ...,
+	type_hints: bool = ...,
+	disallow_extra: bool = ...,
+	early: bool = ...,
+	infer: Literal[True],
+) -> TypeIs[T]: ...
+
+
+def implements[T: object](  # noqa
+	cls: Any,
+	proto: type[T],
 	*,
 	signatures: bool = True,
 	type_hints: bool = True,
 	disallow_extra: bool = False,
 	early: bool = False,
+	infer: bool = False,
 ) -> bool | None:
 	"""
 	check if `typ` implements `proto` at runtime.
@@ -71,13 +76,15 @@ def implements(  # noqa
 		signatures: whether to compare callable signatures.
 		type_hints: whether to compare type annotations.
 		disallow_extra: if True, also flag extra parameters not in protocol.
-		early: returns early, as bool
+		early: **deprecated, you may want to use `infer` instead**
+		infer: if True, function will return a bool, whether the interface is implemented or not,
+			instead of raising an exception
 
 	Raises:
 		DoesNotImplementError: if `typ` doesn't implement `proto`
 	"""
 
-	if early:
+	if early or infer:
 		return _implements_early(
 			cls=cls,
 			proto=proto,
@@ -86,22 +93,28 @@ def implements(  # noqa
 			disallow_extra=disallow_extra,
 		)
 
+	instance = object()
+	if isinstance(cls, object) and not isinstance(cls, type):
+		instance = cls
+		cls = type(instance)
+
 	viols = []
 	_raise_if_not_proto(proto)
 	protombrs = _get_protocol_members(proto)
 	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
 
 	for name, protombr in protombrs.items():
-		clsmbr = getattr(cls, name, Unset)
+		clsmbr = getattr(instance, name, Unset) or getattr(cls, name, Unset)
 
 		# --- missing ---
-		if not is_set(clsmbr):
+		if is_unset(clsmbr):
 			if viol := _check_missing(name, proto, proto_typehints, cls_typehints):
 				viols.append(viol)
 			continue
 
+		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
 		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
-		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(v if is_set(v := _get_raw(cls, name)) else clsmbr)
+		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
 		if protombr_kind == "property":
@@ -163,9 +176,9 @@ def implements(  # noqa
 	return None
 
 
-def _implements_early(  # noqa
-	cls: type,
-	proto: type,
+def _implements_early[T: object](
+	cls: type | object,
+	proto: type[T],
 	*,
 	signatures: bool = True,
 	type_hints: bool = True,
@@ -184,21 +197,27 @@ def _implements_early(  # noqa
 	Raises:
 		DoesNotImplementError: if `typ` doesn't implement `proto`
 	"""
+	is_instance = isinstance(cls, object) and not isinstance(cls, type)
+	instance: object = cls if is_instance else object()
+	if is_instance:
+		cls = type(cls)
+
 	_raise_if_not_proto(proto)
 	protombrs = _get_protocol_members(proto)
 	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
 
 	for name, protombr in protombrs.items():
-		clsmbr = getattr(cls, name, Unset)
+		clsmbr = getattr(instance, name, Unset) or getattr(cls, name, Unset)
 
 		# --- missing ---
-		if not is_set(clsmbr):
+		if is_unset(clsmbr):
 			if _check_missing(name, proto, proto_typehints, cls_typehints):
 				return False
 			continue
 
+		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
 		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
-		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(v if is_set(v := _get_raw(cls, name)) else clsmbr)
+		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
 		if protombr_kind == "property":

@@ -198,7 +198,9 @@ class DistributedLock:
 
 	@asynccontextmanager
 	async def acquire(self, key: Any, *, ttl: int = 5) -> AsyncGenerator[None]:
-		implements(type(key), strable)
+		if not implements(key, strable, infer=True):
+			raise TypeError(f"type {type(key)} does not implement strable")
+
 		key = str(key)
 		token = os.urandom(16).hex()
 		acquired = False

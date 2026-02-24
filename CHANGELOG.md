@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.2
+
+- Added `infer: bool = False` parameter to `iface.implements()`, deprecated `early` parameter. Now with `infer` (or `early`) set to True, function returns not only if the type is valid for the interface, but also hints static type checkers that it is implemented.
+- Widened `cls` type bound in `iface.implements()` from `type` to `type | object`, now runtime-set methods / attributes will be correctly validated.
+- Added `type.is_unset() -> TypeIs[UnsetT]` function.
+- Widened type bound for `http.ArgumentFunc` from `async_function[...]` to `any_function[...]` (`async_function | sync_function`)
+
 ## v0.2.1
 
 - Added `func.importutil` module for comfortable work with low-level importing
