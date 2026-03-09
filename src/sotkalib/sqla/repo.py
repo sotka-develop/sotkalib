@@ -1,19 +1,15 @@
-from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapper
+from sqlalchemy.orm import Load, Mapper
 from sqlalchemy.sql.elements import ColumnElement, literal_column
 
 from .validate import validate_kwargs
 
 if TYPE_CHECKING:
-	from sqlalchemy.orm.strategy_options import _AbstractLoad
-
 	from .dbm import BasicDBM
 
 
@@ -21,7 +17,7 @@ class NotFoundError(KeyError):
 	pass
 
 
-_DOP = BaseModel | Mapping[str, Any]
+_DOP = BaseModel | dict[str, Any]
 
 
 class BaseRepository[M: BasicDBM, PK]:
@@ -45,16 +41,22 @@ class BaseRepository[M: BasicDBM, PK]:
 	def _select_where(self, *conditions: Any) -> Select[tuple[M]]:
 		return self._select.where(*conditions)
 
-	def _build_primary_key_clause(self, obj_id: PK) -> list[ColumnElement[bool]]:
+	def _build_primary_key_clause(
+		self, obj_id: PK
+	) -> list[ColumnElement[bool]]:
 		return [
 			self.model.__mapper__.c[k.key or "-"] == v
-			for k, v in zip(self._primary_key_cols, obj_id if isinstance(obj_id, tuple) else (obj_id,), strict=True)
+			for k, v in zip(
+				self._primary_key_cols,
+				obj_id if isinstance(obj_id, tuple) else (obj_id,),
+				strict=True,
+			)
 		]
 
 	async def one(
 		self,
 		obj_id: PK,
-		options: Sequence[_AbstractLoad] | None = None,
+		options: Sequence[Load] | None = None,
 	) -> M | None:
 		stmt = self._select_where(*self._build_primary_key_clause(obj_id))
 		if options:
@@ -62,19 +64,19 @@ class BaseRepository[M: BasicDBM, PK]:
 		return await self.session.scalar(stmt)
 
 	async def exists(self, obj_id: PK) -> bool:
-		return (
+		return bool(
 			await self.session.scalar(
 				select(func.count(literal_column("1")))
 				.select_from(self.model)
 				.where(*self._build_primary_key_clause(obj_id))
 			)
 			or 0
-		) > 0
+		)
 
 	async def create(self, **attrs: Any) -> M:
 		validate_kwargs(model=self.model, kwargs=attrs, mode="required")
 
-		instance = self.model(**attrs)  # noqa
+		instance = self.model(**attrs)
 		self.session.add(instance)
 
 		await self.session.flush()
@@ -103,9 +105,13 @@ class BaseRepository[M: BasicDBM, PK]:
 		await self.session.flush()
 
 	async def create_many(self, items: Sequence[_DOP]) -> Sequence[M]:
-		_mp_reprs: list[Mapping[str, Any]] = []
+		_mp_reprs = []
 		for kwargs in items:
-			_mp = kwargs if isinstance(kwargs, Mapping) else kwargs.model_dump(mode="python")
+			_mp = (
+				kwargs
+				if isinstance(kwargs, Mapping)
+				else kwargs.model_dump(mode="python")
+			)
 			validate_kwargs(model=self.model, kwargs=_mp, mode="required")
 			_mp_reprs.append(_mp)
 
@@ -118,22 +124,28 @@ class BaseRepository[M: BasicDBM, PK]:
 
 		return instances
 
-	async def delete_many(self, obj_ids: Sequence[PK]) -> None:
+	async def delete_many(
+		self, obj_ids: Sequence[PK], strict: bool = True
+	) -> None:
 		"""
-		*Delete many instances by their primary keys*
+		Delete many instances by their primary keys
 
-		#### Parameters
+		Args:
+			obj_ids: ids of instances
+			strict: if to raise if instance is not found
 
-		- **obj_ids**: `Sequence[PK]` - primary keys \\_0_\
+		Raises:
+			NotFoundError: if instance is not found and strict is True
 
 		"""
 
-		instances: list[M] = []
+		instances = []
 		for obj_id in obj_ids:
 			instance = await self.one(obj_id)
-			if instance is None:
+			if instance is None and strict:
 				raise NotFoundError(obj_id)
-			instances.append(instance)
+			if instance is not None:
+				instances.append(instance)
 
 		for instance in instances:
 			await self.session.delete(instance)
@@ -143,9 +155,9 @@ class BaseRepository[M: BasicDBM, PK]:
 	async def many(
 		self,
 		where: Sequence[ColumnElement[bool]] | None = None,
-		options: Sequence[_AbstractLoad] | None = None,
-		page: PositiveInt = 1,
-		page_size: PositiveInt | None = None,
+		options: Sequence[Load] | None = None,
+		page: int = 1,
+		page_size: int | None = None,
 		unique: bool = False,
 	) -> Sequence[M]:
 		"""
@@ -155,8 +167,8 @@ class BaseRepository[M: BasicDBM, PK]:
 
 		- **where**: `Sequence[ColumnElement[bool]]` - sequence of predicates to use with query
 		- **options**: `Sequence[selectinload | joinedload...]` - sequence of realtionship loads to apply to query
-		- **page**: `int` - query page
-		- **page_size**: `int` - query page size
+		- **page**: `int` - query page (> 0)
+		- **page_size**: `int` - query page size (> 0)
 		- **unique**: `bool` - whether to return unique results
 
 		**Return type**: `Sequence[M]`
@@ -178,4 +190,4 @@ class BaseRepository[M: BasicDBM, PK]:
 		if unique:
 			result = result.unique()
 
-		return result.all() or []
+		return result.all()

@@ -109,21 +109,27 @@ class TestBasicFail:
 		class Impl:
 			pass
 
-		with pytest.raises(DoesNotImplementError, match="expected member `method`"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected member `method`"
+		):
 			implements(Impl, ProtocolWithMethod)
 
 	def test_missing_attr(self):
 		class Impl:
 			pass
 
-		with pytest.raises(DoesNotImplementError, match="expected annotated attribute `attr`"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected annotated attribute `attr`"
+		):
 			implements(Impl, ProtocolWithAttr)
 
 	def test_method_is_not_callable(self):
 		class Impl:
 			method: str = "not a function"
 
-		with pytest.raises(DoesNotImplementError, match="expected `method` to be callable"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected `method` to be callable"
+		):
 			implements(Impl, ProtocolWithMethod)
 
 	def test_attr_is_callable(self):
@@ -131,7 +137,10 @@ class TestBasicFail:
 			def attr(self) -> str:
 				return "oops"
 
-		with pytest.raises(DoesNotImplementError, match="expected `attr` to be a data attribute"):
+		with pytest.raises(
+			DoesNotImplementError,
+			match="expected `attr` to be a data attribute",
+		):
 			implements(Impl, ProtocolWithAttr)
 
 	def test_non_protocol_raises_typeerror(self):
@@ -168,7 +177,9 @@ class TestSignatures:
 			def method(self, x: str) -> str:
 				return x
 
-		with pytest.raises(DoesNotImplementError, match="expected annotated parameter"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected annotated parameter"
+		):
 			implements(Impl, ProtocolWithMethod)
 
 	def test_return_type_mismatch(self):
@@ -187,7 +198,9 @@ class TestSignatures:
 			def m(self, a: int) -> None:
 				pass
 
-		with pytest.raises(DoesNotImplementError, match="expected parameter `b`"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected parameter `b`"
+		):
 			implements(Impl, Proto)
 
 	def test_signatures_disabled(self):
@@ -215,7 +228,9 @@ class TestStrictMode:
 			def method(self, x: int, extra: int) -> str:
 				return str(x)
 
-		with pytest.raises(DoesNotImplementError, match="unexpected required parameter"):
+		with pytest.raises(
+			DoesNotImplementError, match="unexpected required parameter"
+		):
 			implements(Impl, ProtocolWithMethod, disallow_extra=True)
 
 	def test_extra_param_with_default_ok(self):
@@ -292,7 +307,9 @@ class TestVarArgs:
 			def m(self, *args: Any) -> None:
 				pass
 
-		with pytest.raises(DoesNotImplementError, match="expected keyword parameter `key`"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected keyword parameter `key`"
+		):
 			implements(Impl, Proto)
 
 
@@ -488,7 +505,9 @@ class TestProperties:
 			def val(self) -> str:
 				return "oops"
 
-		with pytest.raises(DoesNotImplementError, match="expected property.*to be of type"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected property.*to be of type"
+		):
 			implements(Impl, Proto)
 
 	def test_property_satisfied_by_annotation(self):
@@ -530,7 +549,9 @@ class TestProperties:
 		class Impl:
 			val: str
 
-		with pytest.raises(DoesNotImplementError, match="expected property.*to be of type"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected property.*to be of type"
+		):
 			implements(Impl, Proto)
 
 
@@ -598,7 +619,9 @@ class TestDescriptorKinds:
 			def make(x: str) -> str:
 				return x
 
-		with pytest.raises(DoesNotImplementError, match="expected annotated parameter"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected annotated parameter"
+		):
 			implements(Impl, Proto)
 
 
@@ -626,7 +649,9 @@ class TestDunderMembers:
 			def __call__(self, x: str) -> str:
 				return x
 
-		with pytest.raises(DoesNotImplementError, match="expected annotated parameter"):
+		with pytest.raises(
+			DoesNotImplementError, match="expected annotated parameter"
+		):
 			implements(Impl, Callable)
 
 	def test_getitem_protocol(self):

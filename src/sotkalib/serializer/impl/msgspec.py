@@ -26,6 +26,11 @@ class _msgspec_mixin:  # noqa: N801
 		return inst
 
 
+class _typed_msgspec_mixin[T](  # noqa: N801
+	TypedSerializerGenericMixin[T], _msgspec_mixin
+): ...
+
+
 class MsgspecJsonSerializer(_msgspec_mixin):
 	def marshal(self, data: Any) -> bytes:
 		return msgspec_json.encode(data, enc_hook=self._enc_hook)
@@ -42,17 +47,21 @@ class MsgspecMsgpackSerializer(_msgspec_mixin):
 		return msgspec_msgpack.decode(raw_data, dec_hook=self._dec_hook)
 
 
-class TypedMsgspecJsonSerializer[T](TypedSerializerGenericMixin, _msgspec_mixin):
+class TypedMsgspecJsonSerializer[T](_typed_msgspec_mixin[T]):
 	def marshal(self, data: T) -> bytes:
 		return msgspec_json.encode(data, enc_hook=self._enc_hook)
 
 	def unmarshal(self, raw_data: bytes) -> T:
-		return msgspec_json.decode(raw_data, type=self.type_, dec_hook=self._dec_hook)
+		return msgspec_json.decode(
+			raw_data, type=self.type_, dec_hook=self._dec_hook
+		)
 
 
-class TypedMsgspecMsgpackSerializer[T](TypedSerializerGenericMixin, _msgspec_mixin):
+class TypedMsgspecMsgpackSerializer[T](_typed_msgspec_mixin[T]):
 	def marshal(self, data: T) -> bytes:
 		return msgspec_msgpack.encode(data, enc_hook=self._enc_hook)
 
 	def unmarshal(self, raw_data: bytes) -> T:
-		return msgspec_msgpack.decode(raw_data, type=self.type_, dec_hook=self._dec_hook)
+		return msgspec_msgpack.decode(
+			raw_data, type=self.type_, dec_hook=self._dec_hook
+		)

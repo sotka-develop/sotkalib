@@ -22,4 +22,6 @@ class TestGetLogger:
 
 	def test_name_formatting(self):
 		log = get_logger("src.database.service")
-		assert " src -> database -> service " in str(log._core.extra) or hasattr(log, "_log")
+		assert " src -> database -> service " in str(
+			log._core.extra
+		) or hasattr(log, "_log")

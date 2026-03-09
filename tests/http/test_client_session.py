@@ -123,15 +123,23 @@ class TestClientSettings:
 		assert result.backoff == 3.0
 
 	def test_merge_nested_status_settings(self):
-		base = ClientSettings(status_settings=StatusSettings(not_found_as_none=True))
-		patch = ClientSettings(status_settings=StatusSettings(unspecified="raise"))
+		base = ClientSettings(
+			status_settings=StatusSettings(not_found_as_none=True)
+		)
+		patch = ClientSettings(
+			status_settings=StatusSettings(unspecified="raise")
+		)
 		result = base | patch
 		assert result.status_settings.not_found_as_none is True
 		assert result.status_settings.unspecified == "raise"
 
 	def test_merge_nested_exception_settings(self):
-		base = ClientSettings(exception_settings=ExceptionSettings(unspecified="raise"))
-		patch = ClientSettings(exception_settings=ExceptionSettings(exc_to_raise=ValueError))
+		base = ClientSettings(
+			exception_settings=ExceptionSettings(unspecified="raise")
+		)
+		patch = ClientSettings(
+			exception_settings=ExceptionSettings(exc_to_raise=ValueError)
+		)
 		result = base | patch
 		assert result.exception_settings.unspecified == "raise"
 		assert result.exception_settings.exc_to_raise is ValueError
@@ -146,14 +154,19 @@ class TestClientSettings:
 		assert result.backoff == 5.0
 
 	def test_merge_status_settings_directly(self):
-		base = ClientSettings(timeout=10.0, status_settings=StatusSettings(not_found_as_none=True))
+		base = ClientSettings(
+			timeout=10.0, status_settings=StatusSettings(not_found_as_none=True)
+		)
 		result = base | StatusSettings(unspecified="raise")
 		assert result.timeout == 10.0
 		assert result.status_settings.not_found_as_none is True
 		assert result.status_settings.unspecified == "raise"
 
 	def test_merge_exception_settings_directly(self):
-		base = ClientSettings(timeout=10.0, exception_settings=ExceptionSettings(unspecified="raise"))
+		base = ClientSettings(
+			timeout=10.0,
+			exception_settings=ExceptionSettings(unspecified="raise"),
+		)
 		result = base | ExceptionSettings(exc_to_raise=ValueError)
 		assert result.exception_settings.unspecified == "raise"
 		assert result.exception_settings.exc_to_raise is ValueError
@@ -172,7 +185,9 @@ class TestClientSettings:
 		assert result.exception_settings.unspecified == "raise"
 
 	def test_merge_direct_does_not_mutate_base(self):
-		base = ClientSettings(status_settings=StatusSettings(not_found_as_none=True))
+		base = ClientSettings(
+			status_settings=StatusSettings(not_found_as_none=True)
+		)
 		_ = base | StatusSettings(not_found_as_none=False)
 		assert base.status_settings.not_found_as_none is True
 
@@ -202,7 +217,10 @@ class TestRequestContext:
 		assert ctx.headers == {"Authorization": "Bearer token"}
 
 		ctx.merge_headers({"X-Custom": "value"})
-		assert ctx.headers == {"Authorization": "Bearer token", "X-Custom": "value"}
+		assert ctx.headers == {
+			"Authorization": "Bearer token",
+			"X-Custom": "value",
+		}
 
 	def test_to_request_kwargs(self):
 		ctx = RequestContext(
@@ -226,7 +244,9 @@ class TestRequestContext:
 class TestClientSession:
 	@pytest.mark.asyncio
 	async def test_get(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/ok")
 			# pyrefly: ignore [missing-attribute]
@@ -235,7 +255,9 @@ class TestClientSession:
 
 	@pytest.mark.asyncio
 	async def test_post(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.post(f"{base_url}/ok")
 			# pyrefly: ignore [missing-attribute]
@@ -244,7 +266,9 @@ class TestClientSession:
 
 	@pytest.mark.asyncio
 	async def test_put(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.put(f"{base_url}/ok")
 			# pyrefly: ignore [missing-attribute]
@@ -253,7 +277,9 @@ class TestClientSession:
 
 	@pytest.mark.asyncio
 	async def test_delete(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.delete(f"{base_url}/ok")
 			# pyrefly: ignore [missing-attribute]
@@ -262,7 +288,9 @@ class TestClientSession:
 
 	@pytest.mark.asyncio
 	async def test_patch(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.patch(f"{base_url}/ok")
 			# pyrefly: ignore [missing-attribute]
@@ -271,7 +299,9 @@ class TestClientSession:
 
 	@pytest.mark.asyncio
 	async def test_not_found_returns_none(self, base_url):
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		async with HTTPSession(config) as session:
 			resp = await session.get(f"{base_url}/not-found")
 			assert resp is None
@@ -312,7 +342,9 @@ class TestMiddleware:
 			call_log.append(f"after: {ctx.status}")
 			return result
 
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		session = HTTPSession(config).use(logging_mw)
 		async with session as s:
 			resp = await s.get(f"{base_url}/ok")
@@ -332,7 +364,9 @@ class TestMiddleware:
 			ctx.merge_headers({"X-Test-Header": "middleware-value"})
 			return await next(ctx)
 
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		session = HTTPSession(config).use(auth_mw)
 		async with session as s:
 			resp = await s.get(f"{base_url}/headers")
@@ -349,7 +383,9 @@ class TestMiddleware:
 				return {}
 			return await resp.json()
 
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		session = HTTPSession(config).use(json_mw)
 		async with session as s:
 			data = await s.get(f"{base_url}/ok")
@@ -374,7 +410,13 @@ class TestMiddleware:
 			return result
 
 		async with (
-			HTTPSession(ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}))
+			HTTPSession(
+				ClientSettings(
+					session_kwargs={
+						"connector": aiohttp.TCPConnector(ssl=False)
+					}
+				)
+			)
 			.use(mw1)
 			.use(mw2) as s
 		):
@@ -396,7 +438,9 @@ class TestMiddleware:
 			captured_request_id = ctx.state.get("request_id")
 			return await next(ctx)
 
-		config = ClientSettings(session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)})
+		config = ClientSettings(
+			session_kwargs={"connector": aiohttp.TCPConnector(ssl=False)}
+		)
 		session = HTTPSession(config).use(id_mw).use(capture_mw)
 		async with session as s:
 			await s.get(f"{base_url}/ok")

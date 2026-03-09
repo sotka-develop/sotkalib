@@ -9,7 +9,7 @@ from .args_incl_error import ArgsIncludedError
 
 def exception_handler[**P, R](
 	func: Callable[P, R],
-	stack_depth: int = 3,
+	stack_depth: int = 2,
 ) -> Callable[P, R]:
 	@wraps(func)
 	def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -24,7 +24,7 @@ def exception_handler[**P, R](
 
 def aexception_handler[**P, R](
 	func: Callable[P, Coroutine[Any, Any, R]],
-	stack_depth: int = 7,
+	stack_depth: int = 2,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
 	@wraps(func)
 	async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

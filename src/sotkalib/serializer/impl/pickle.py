@@ -4,7 +4,9 @@ from pickle import HIGHEST_PROTOCOL, dumps, loads
 from typing import Any
 from warnings import warn
 
-_pickle_allowed = (os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes") or False
+_pickle_allowed = (
+	os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes"
+) or False
 
 
 class SecurityWarning(Warning): ...
@@ -15,11 +17,12 @@ class B64Pickle:
 	def marshal(data: Any) -> bytes:
 		if not _pickle_allowed:
 			warn(
-				"sotkalib.redis.lru is using pickle serializer."
-				" This is not recommended for production,"
-				" as deserialization with pickle may execute arbitrary code.\n\n"
-				"You may silence this warning by using a different serializer or set"
-				"ting the environment variable SOTKALIB_ALLOW_PICKLE=yes",
+				"sotkalib.redis.lru is using pickle serializer.\n\n"
+				"This is not recommended for production, "
+				"as deserialization with pickle may execute arbitrary code.\n"
+				"You may silence this warning by using a different serializer"
+				"or setting the environment variable "
+				"SOTKALIB_ALLOW_PICKLE to yes.",
 				stacklevel=2,
 				category=SecurityWarning,
 			)

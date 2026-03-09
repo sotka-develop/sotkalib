@@ -86,7 +86,9 @@ async def test_acquire_and_release(redis_url: str, redis_client: Redis):
 
 
 @pytest.mark.asyncio
-async def test_raises_when_already_acquired(redis_url: str, redis_client: Redis):
+async def test_raises_when_already_acquired(
+	redis_url: str, redis_client: Redis
+):
 	pool = RedisPool(RedisPoolSettings(uri=redis_url, db_num=0))
 	lock = DistributedLock(pool)
 	key = "test:locker:conflict"
@@ -162,7 +164,11 @@ async def test_spin_then_wait_fallback(redis_url: str, redis_client: Redis):
 
 	await redis_client.set(key, "other_holder", ex=1)
 
-	lock = DistributedLock(pool).spin(attempts=3).wait(backoff=plain_delay(0.2), timeout=5.0)
+	lock = (
+		DistributedLock(pool)
+		.spin(attempts=3)
+		.wait(backoff=plain_delay(0.2), timeout=5.0)
+	)
 
 	async with lock.acquire(key):
 		val = await redis_client.get(key)
@@ -179,7 +185,11 @@ async def test_spin_then_wait_timeout(redis_url: str, redis_client: Redis):
 
 	await redis_client.set(key, "other_holder", ex=30)
 
-	lock = DistributedLock(pool).spin(attempts=3).wait(backoff=plain_delay(0.05), timeout=0.3)
+	lock = (
+		DistributedLock(pool)
+		.spin(attempts=3)
+		.wait(backoff=plain_delay(0.05), timeout=0.3)
+	)
 
 	with pytest.raises(ContextLockError) as exc_info:
 		async with lock.acquire(key):
@@ -201,7 +211,9 @@ def test_spin_builder_returns_copy(redis_url: str):
 
 
 @pytest.mark.asyncio
-async def test_does_not_delete_others_lock_on_acquire_failure(redis_url: str, redis_client: Redis):
+async def test_does_not_delete_others_lock_on_acquire_failure(
+	redis_url: str, redis_client: Redis
+):
 	pool = RedisPool(RedisPoolSettings(uri=redis_url, db_num=0))
 	lock = DistributedLock(pool)
 	key = "test:locker:no_delete_other"
@@ -366,7 +378,11 @@ def test_builder_methods_return_copies(redis_url: str):
 def test_chained_modifications(redis_url: str):
 	pool = RedisPool(RedisPoolSettings(uri=redis_url, db_num=0))
 
-	lock = DistributedLock(pool).wait(backoff=plain_delay(0.5), timeout=10.0).if_taken(retry=True)
+	lock = (
+		DistributedLock(pool)
+		.wait(backoff=plain_delay(0.5), timeout=10.0)
+		.if_taken(retry=True)
+	)
 
 	assert lock._wait is True
 	assert lock._wait_timeout == 10.0

@@ -5,6 +5,9 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm.attributes import flag_modified
 
+from sotkalib.type.unset import is_unset
+
+from ..type.unset import Unset
 from .validate import _autoset
 
 
@@ -22,7 +25,8 @@ class BasicDBM(DeclarativeBase):
 		if explicitly_include is None:
 			explicitly_include = []
 
-		# assuming that user wants explicitly included fields only and only those that are in the model
+		# assuming that user wants explicitly included fields only
+		# and only those that are in the model
 		include = (
 			set(explicitly_include) & set(pydantic_model.model_fields.keys())
 			if explicitly_include and pydantic_model
@@ -38,9 +42,14 @@ class BasicDBM(DeclarativeBase):
 			if not include or field.name in include:
 				result[field.name] = getattr(self, field.name)
 
-		# checking include if it has any attrs left, that are not columns of DBM (e.g. property, smth else)
+		# checking include if it has any attrs left,
+		# that are not columns of DBM (e.g. property, smth else)
 		# diffing explicitly_set because those would be overwritten anyway
-		for k in set(include).difference(*result.keys()).difference(*explicitly_set.keys()):
+		for k in (
+			set(include)
+			.difference(*result.keys())
+			.difference(*explicitly_set.keys())
+		):
 			if hasattr(self, k):
 				result[k] = getattr(self, k)
 
@@ -49,20 +58,27 @@ class BasicDBM(DeclarativeBase):
 		return result
 
 	def is_loaded(self, *, attr: str):
-		if attr not in (k := {c.key for c in inspect(self).mapper.all_orm_descriptors}):  # type:ignore
+		if attr not in (
+			k := {c.key for c in inspect(self).mapper.all_orm_descriptors}  # type:ignore
+		):
 			raise KeyError(k)
 		return attr not in inspect(self).unloaded
 
 	def merge(self, *, strict: bool = False, **attrs):
-		valid_attrs = {c.key for c in self.__mapper__.c if c not in self.__mapper__.primary_key or not _autoset(c)}
+		valid_attrs = {
+			c.key
+			for c in self.__mapper__.c
+			if c not in self.__mapper__.primary_key or not _autoset(c)
+		}
 
 		if strict and not valid_attrs.issuperset(attrs.keys()):
 			raise AttributeError(set(attrs.keys()).difference(valid_attrs))
 
-		modified_attrs = valid_attrs
+		modified_attrs = valid_attrs.copy()
 
 		for c in valid_attrs:
-			if getattr(self, c) == attrs[c]:
+			val = attrs.get(c, Unset)
+			if is_unset(val) or getattr(self, c) == attrs.get(c):
 				modified_attrs.remove(c)
 
 		self.__dict__ |= {k: v for k, v in attrs.items() if k in modified_attrs}

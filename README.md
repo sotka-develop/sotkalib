@@ -26,18 +26,26 @@ Type-safe settings read from environment variables (with `.env` support). Only i
 import secrets
 from sotkalib.config import AppSettings, SettingsField
 
+
 class Config(AppSettings):
-    BOT_TOKEN: str = SettingsField(nullable=False)
-    POSTGRES_USER: str = SettingsField(default="pg_user")
-    POSTGRES_PASSWORD: str = SettingsField(factory=lambda: secrets.token_urlsafe(8))
-    SECRET: str = SettingsField(factory="computed_secret")  # resolved from a @property
+	BOT_TOKEN: str = SettingsField(nullable=False)
+	POSTGRES_USER: str = SettingsField(default="pg_user")
+	POSTGRES_PASSWORD: str = SettingsField(
+		factory=lambda: secrets.token_urlsafe(8)
+	)
+	SECRET: str = SettingsField(
+		factory="computed_secret"
+	)  # resolved from a @property
 
-    @property
-    def computed_secret(self) -> str:
-        return "derived-from-other-fields"
+	@property
+	def computed_secret(self) -> str:
+		return "derived-from-other-fields"
 
-settings = Config()                                    # loads from env / .env
-prod_settings = Config(dotenv_path=".env.prod", strict=True)  # strict rejects mutable types
+
+settings = Config()  # loads from env / .env
+prod_settings = Config(
+	dotenv_path=".env.prod", strict=True
+)  # strict rejects mutable types
 ```
 
 `SettingsField` options:
@@ -58,29 +66,31 @@ Manages sync and async SQLAlchemy engines and session factories. Sessions come i
 ```python
 from sotkalib.sqla import Database, DatabaseSettings, BasicDBM
 
-db = Database(DatabaseSettings(
-    uri="postgresql://user:pass@localhost:5432/mydb",
-    async_driver="psycopg",   # set to None to disable async
-    enable_sync_engine=False,
-    pool_size=10,
-    echo=False,
-    expire_on_commit=False,
-    implicit_safe=True,        # .asession returns safe wrapper
-))
+db = Database(
+	DatabaseSettings(
+		uri="postgresql://user:pass@localhost:5432/mydb",
+		async_driver="psycopg",  # set to None to disable async
+		enable_sync_engine=False,
+		pool_size=10,
+		echo=False,
+		expire_on_commit=False,
+		implicit_safe=True,  # .asession returns safe wrapper
+	)
+)
 
 # async usage -- auto-commits, rolls back on exception
-async with db as d: # would raise with async_engine=None
-    async with d.asession as session:
-        session.add(row)
+async with db as d:  # would raise with async_engine=None
+	async with d.asession as session:
+		session.add(row)
 
 # sync usage
-with db as d: # would raise with enable_sync_engine=False
-    with d.session as session:
-        session.add(row)
+with db as d:  # would raise with enable_sync_engine=False
+	with d.session as session:
+		session.add(row)
 
 # explicit unsafe if needed
 async with db.asession_unsafe as session:
-    ...
+	...
 
 # create tables from declarative base
 db = Database(DatabaseSettings(uri=..., decl_base=BasicDBM))
@@ -94,18 +104,22 @@ Declarative base with `.dict()` for converting ORM models to plain dicts, option
 ```python
 from sotkalib.sqla import BasicDBM
 
+
 class User(BasicDBM):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    email = Column(String)
+	__tablename__ = "users"
+	id = Column(Integer, primary_key=True)
+	name = Column(String)
+	email = Column(String)
 
-user.dict()                                       # all columns
-user.dict(pydantic_model=UserSchema)              # only fields in UserSchema
-user.dict(explicitly_include=["id", "name"])      # only specified fields
-user.dict(name="not_that_model_has")              # inject/override keys
 
-user.is_loaded(attr="email")                      # check if attr is loaded (useful with lazy relationships)
+user.dict()  # all columns
+user.dict(pydantic_model=UserSchema)  # only fields in UserSchema
+user.dict(explicitly_include=["id", "name"])  # only specified fields
+user.dict(name="not_that_model_has")  # inject/override keys
+
+user.is_loaded(
+	attr="email"
+)  # check if attr is loaded (useful with lazy relationships)
 ```
 
 #### `PydanticJSON`
@@ -115,14 +129,18 @@ Column type that stores Pydantic models as JSON (JSONB on PostgreSQL).
 ```python
 from sotkalib.sqla import PydanticJSON
 
+
 class Profile(BaseModel):
-    bio: str
-    links: list[str]
+	bio: str
+	links: list[str]
+
 
 class User(BasicDBM):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    profile = Column(PydanticJSON(Profile))  # stored as JSONB in postgres, JSON elsewhere
+	__tablename__ = "users"
+	id = Column(Integer, primary_key=True)
+	profile = Column(
+		PydanticJSON(Profile)
+	)  # stored as JSONB in postgres, JSON elsewhere
 ```
 
 Use `flag_pydantic_changes` to detect mutations during updates:
@@ -151,15 +169,17 @@ Connection pool wrapper. Implements `AbstractAsyncContextManager[Redis]` -- use 
 ```python
 from sotkalib.redis import RedisPool, RedisPoolSettings
 
-pool = RedisPool(RedisPoolSettings(
-    uri="redis://localhost:6379",
-    db_num=4,
-    max_connections=50,
-    health_check_interval=30,
-))
+pool = RedisPool(
+	RedisPoolSettings(
+		uri="redis://localhost:6379",
+		db_num=4,
+		max_connections=50,
+		health_check_interval=30,
+	)
+)
 
 async with pool as rc:
-    await rc.set("key", "value")
+	await rc.set("key", "value")
 ```
 
 #### `RedisLRU`
@@ -173,8 +193,10 @@ from sotkalib.redis import RedisLRU, LRUSettings
 # base instance -- define once, import everywhere
 LRU = RedisLRU(pool, LRUSettings(ttl=600, version=1))
 
+
 @LRU.version(2).ttl(60)
 async def get_user(user_id: int) -> User: ...
+
 
 @LRU.ttl(300).version(3).serializer(JSONSerializer)
 async def get_session(token: str) -> Session: ...
@@ -188,10 +210,10 @@ Custom serializers implement the `Serializer` protocol:
 
 ```python
 class Serializer(Protocol):
-    @staticmethod
-    def marshal(data: Any) -> bytes: ...
-    @staticmethod
-    def unmarshal(raw_data: bytes) -> Any: ...
+	@staticmethod
+	def marshal(data: Any) -> bytes: ...
+	@staticmethod
+	def unmarshal(raw_data: bytes) -> Any: ...
 ```
 
 #### `DistributedLock`
@@ -205,22 +227,18 @@ from sotkalib.redis.pool import RedisPool
 # base instance
 Locker = DistributedLock(RedisPool(), DLSettings())
 
-async def main():
-    async with (
-        Locker
-        .wait(timeout=30.0, backoff=exponential_delay(0.1, 2))
-        .acquire("resource:123", ttl=10)
-    ):
-        ...  # lock held
 
-    # shorthand
-    async with (
-        Locker
-        .spin(attempts=100)
-        .no_wait()
-        .acq("resource:123", timeout=5)
-    ):
-        ...
+async def main():
+	async with Locker.wait(
+		timeout=30.0, backoff=exponential_delay(0.1, 2)
+	).acquire("resource:123", ttl=10):
+		...  # lock held
+
+	# shorthand
+	async with (
+		Locker.spin(attempts=100).no_wait().acq("resource:123", timeout=5)
+	):
+		...
 ```
 
 Builder methods: `.wait()`, `.no_wait()`, `.spin()`, `.if_taken()`, `.exc()`
@@ -230,9 +248,9 @@ Backoff helpers:
 ```python
 from sotkalib.redis.locker import plain_delay, additive_delay, exponential_delay
 
-plain_delay(0.5)               # constant 0.5s
-additive_delay(0.1, 0.1)      # 0.1, 0.2, 0.3, ...
-exponential_delay(0.1, 2)     # 0.1, 0.2, 0.4, 0.8, ...
+plain_delay(0.5)  # constant 0.5s
+additive_delay(0.1, 0.1)  # 0.1, 0.2, 0.3, ...
+exponential_delay(0.1, 2)  # 0.1, 0.2, 0.4, 0.8, ...
 ```
 
 Raises `ContextLockError` on failure. The `.can_retry` attribute indicates whether the caller should retry.
@@ -244,17 +262,22 @@ Raises `ContextLockError` on failure. The `.can_retry` attribute indicates wheth
 Protocol-based serialization with typed and untyped variants. Typed serializers use `__class_getitem__` for zero-boilerplate instantiation.
 
 ```python
-from sotkalib.serializer.impl.msgspec import MSJSONSerializer, TypedMSJSONSerializer
+from sotkalib.serializer.impl.msgspec import (
+	MSJSONSerializer,
+	TypedMSJSONSerializer,
+)
 from msgspec import Struct
 
 # untyped
 raw = MSJSONSerializer.marshal({"key": "value"})
 data = MSJSONSerializer.unmarshal(raw)
 
+
 # typed -- type is bound via subscript
 class User(Struct):
-    name: str
-    age: int
+	name: str
+	age: int
+
 
 ser = TypedMSJSONSerializer[User]()
 raw = ser.marshal(User(name="alice", age=30))
@@ -281,38 +304,52 @@ aiohttp wrapper with configurable retry logic, status code handling, exception r
 import asyncio
 from http import HTTPStatus
 from aiohttp import ServerDisconnectedError, ContentTypeError
-from sotkalib.http import HTTPSession, ClientSettings, StatusSettings, ExceptionSettings
+from sotkalib.http import (
+	HTTPSession,
+	ClientSettings,
+	StatusSettings,
+	ExceptionSettings,
+)
 
 # base config -- define once
-client = HTTPSession(ClientSettings(
-    timeout=10.0,
-    maximum_retries=3,
-    base=1.0,              # base delay
-    backoff=2.0,           # exponential backoff factor
-    status_settings=StatusSettings(
-        to_retry={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE},
-        to_raise={HTTPStatus.FORBIDDEN},
-        not_found_as_none=True,
-        unspecified="retry",   # or "raise"
-    ),
-    exception_settings=ExceptionSettings(
-        to_retry=(TimeoutError, ServerDisconnectedError),
-        to_raise=(ContentTypeError,),
-        unspecified="retry",
-    ),
-))
+client = HTTPSession(
+	ClientSettings(
+		timeout=10.0,
+		maximum_retries=3,
+		base=1.0,  # base delay
+		backoff=2.0,  # exponential backoff factor
+		status_settings=StatusSettings(
+			to_retry={
+				HTTPStatus.TOO_MANY_REQUESTS,
+				HTTPStatus.SERVICE_UNAVAILABLE,
+			},
+			to_raise={HTTPStatus.FORBIDDEN},
+			not_found_as_none=True,
+			unspecified="retry",  # or "raise"
+		),
+		exception_settings=ExceptionSettings(
+			to_retry=(TimeoutError, ServerDisconnectedError),
+			to_raise=(ContentTypeError,),
+			unspecified="retry",
+		),
+	)
+)
 
 # branch from base config with |
 base = ClientSettings(timeout=10.0, maximum_retries=3)
 
+
 async def main():
-    async with (
-            base
-            | ClientSettings(maximum_retries=5)
-            | StatusSettings(not_found_as_none=False)
-    ) as http:
-        resp = await http.get("https://api.example.com/users/1")
-        data = await http.post("https://api.example.com/users", json={"User": "Me"})
+	async with (
+		base
+		| ClientSettings(maximum_retries=5)
+		| StatusSettings(not_found_as_none=False)
+	) as http:
+		resp = await http.get("https://api.example.com/users/1")
+		data = await http.post(
+			"https://api.example.com/users", json={"User": "Me"}
+		)
+
 
 asyncio.run(main())
 ```
@@ -325,28 +362,37 @@ Middleware wraps the request pipeline. Each middleware receives a `RequestContex
 import asyncio
 from sotkalib.http import HTTPSession, RequestContext
 
+
 async def auth_middleware(ctx: RequestContext, next):
-    ctx.merge_headers({"Authorization": "Bearer ..."})
-    return await next(ctx)
+	ctx.merge_headers({"Authorization": "Bearer ..."})
+	return await next(ctx)
+
 
 async def logging_middleware(ctx: RequestContext, next):
-    result = await next(ctx)
-    print(f"{ctx.method} {ctx.url} -> {ctx.status} in {ctx.elapsed:.2f}s")
-    return result
+	result = await next(ctx)
+	print(f"{ctx.method} {ctx.url} -> {ctx.status} in {ctx.elapsed:.2f}s")
+	return result
+
 
 # passthrough middleware -- return type unchanged (HTTPSession[ClientResponse | None])
 client = HTTPSession().use(auth_middleware).use(logging_middleware)
 
+
 # type-transforming middleware -- return type becomes HTTPSession[dict]
 async def json_middleware(ctx: RequestContext, next) -> dict:
-    resp = await next(ctx)
-    return await resp.json() if resp else {}
+	resp = await next(ctx)
+	return await resp.json() if resp else {}
 
-json_client: HTTPSession[dict] = HTTPSession().use(auth_middleware).use(json_middleware)
+
+json_client: HTTPSession[dict] = (
+	HTTPSession().use(auth_middleware).use(json_middleware)
+)
+
 
 async def main():
-    async with json_client as http:
-        data: dict = await http.get("https://api.example.com/users/1")
+	async with json_client as http:
+		data: dict = await http.get("https://api.example.com/users/1")
+
 
 asyncio.run(main())
 ```
@@ -365,10 +411,10 @@ Structured error with status code, error code, description, and context. Seriali
 from sotkalib.exceptions import APIError
 
 raise APIError(
-    status=409,
-    code="CONFLICT",
-    desc="Username already taken",
-    ctx={"field": "username"},
+	status=409,
+	code="CONFLICT",
+	desc="Username already taken",
+	ctx={"field": "username"},
 )
 ```
 
@@ -379,8 +425,10 @@ Decorators that catch exceptions, log them, and re-raise as `ArgsIncludedError` 
 ```python
 from sotkalib.exceptions import exception_handler, aexception_handler
 
+
 @exception_handler
 def sync_fn(): ...
+
 
 @aexception_handler
 async def async_fn(): ...
@@ -392,9 +440,9 @@ async def async_fn(): ...
 from sotkalib.exceptions import traceback_from
 
 try:
-    ...
+	...
 except Exception as e:
-    tb_str = traceback_from(e)  # formatted traceback string
+	tb_str = traceback_from(e)  # formatted traceback string
 ```
 
 ---
@@ -406,9 +454,12 @@ except Exception as e:
 ```python
 from sotkalib.func import or_raise, type_or_raise
 
-class User(object):...
+
+class User(object): ...
+
 
 def get_user() -> User | None: ...
+
 
 user_res = get_user()
 
@@ -428,15 +479,19 @@ Context manager with two modes:
 ```python
 from sotkalib.func import suppress
 
+
 def risky():
-    raise RuntimeError
+	raise RuntimeError
+
 
 with suppress():  # suppresses all exceptions
-    risky()
+	risky()
 
 d = {}
-with suppress(mode="exact", exact_types=(KeyError,)):  # only these types (exact match, not subclasses)
-    _ = d["missing"]
+with suppress(
+	mode="exact", exact_types=(KeyError,)
+):  # only these types (exact match, not subclasses)
+	_ = d["missing"]
 ```
 
 #### Async checks
@@ -444,16 +499,19 @@ with suppress(mode="exact", exact_types=(KeyError,)):  # only these types (exact
 ```python
 from sotkalib.func import asyncfn, asyncfn_or_raise
 
+
 def my_func(): ...
 
-asyncfn(my_func)            # True if coroutine function
-asyncfn_or_raise(my_func)   # raises TypeError if not
+
+asyncfn(my_func)  # True if coroutine function
+asyncfn_or_raise(my_func)  # raises TypeError if not
 ```
 
 #### Deferred awaiting
 
 ```python
 from sotkalib.func import defer, defer_ok, defer_exc, defer_exc_mute
+
 
 async def coro(): ...
 async def coro2(): ...
@@ -462,19 +520,19 @@ async def coro3(): ...
 
 # awaited in finally (always runs)
 async with defer(coro(), coro2(), coro3()):
-    ...
+	...
 
 # awaited only if no exception
 async with defer_ok(coro(), coro2(), coro3()):
-    ...
+	...
 
 # awaited only if exception raised -> bubbles exception up
 async with defer_exc(coro(), coro2(), coro3()):
-    ...
+	...
 
 # awaited only if exception raised -> silences exception
 async with defer_exc_mute(coro(), coro2(), coro3()):
-    ...
+	...
 ```
 
 ---
@@ -491,19 +549,19 @@ from sotkalib.time import now
 from decimal import Decimal
 from pydantic import BaseModel
 
+
 class PM(BaseModel):
-    a: bytes = "2"
-    b: int = 3
+	a: bytes = "2"
+	b: int = 3
+
 
 pydantic_model = PM()
 
-raw: bytes = safe_serialize(
-    {
-        "created": now(),
-        "amount":  Decimal("19.99"),
-        "profile": pydantic_model,
-    }
-)
+raw: bytes = safe_serialize({
+	"created": now(),
+	"amount": Decimal("19.99"),
+	"profile": pydantic_model,
+})
 ```
 
 ---
@@ -532,14 +590,16 @@ All mixins extend `StrEnum`.
 ```python
 from sotkalib.enum import ValidatorMixin, UppercaseMixin, ValuesMixin
 
+
 class Color(ValidatorMixin, UppercaseMixin):
-    RED = auto()
-    GREEN = auto()
+	RED = auto()
+	GREEN = auto()
+
 
 col: Color = Color.RED
-Color.validate(val="RED", req=True)   # Color.RED
+Color.validate(val="RED", req=True)  # Color.RED
 Color.get("blue", default=Color.RED)  # Color.RED
-col.in_(Color.RED, Color.GREEN) # True
+col.in_(Color.RED, Color.GREEN)  # True
 ```
 
 ---
@@ -551,8 +611,8 @@ from sotkalib.time import utcnow, now
 from datetime import timezone, timedelta
 
 tz = timezone(offset=timedelta(hours=12))
-utcnow() # datetime.now(UTC)
-now()    # datetime.now() with local tz
+utcnow()  # datetime.now(UTC)
+now()  # datetime.now() with local tz
 now(tz)  # datetime.now(tz)
 ```
 
@@ -569,8 +629,8 @@ from sotkalib.type import Unset, unset, UnsetT
 
 
 def update(name: str | UnsetT = Unset):
-    if not unset(name):
-        ...
+	if not unset(name):
+		...
 ```
 
 #### `implements` -- Runtime protocol checking
@@ -583,23 +643,23 @@ from sotkalib.type import implements, DoesNotImplementError
 
 
 class UserGetter(Protocol):
-    def get_user(self, user_id: int) -> str: ...
+	def get_user(self, user_id: int) -> str: ...
 
 
 class DB:
-    def get_user(self, user_id: int) -> str:
-        return "user"
+	def get_user(self, user_id: int) -> str:
+		return "user"
 
 
 # Check without raising
 if implements(DB, UserGetter, early=True):
-    print("DB implements UserGetter")
+	print("DB implements UserGetter")
 
 # Strict check with raising
 try:
-    implements(DB, UserGetter, disallow_extra=True)
+	implements(DB, UserGetter, disallow_extra=True)
 except DoesNotImplementError as e:
-    print(e.violations)  # list of what failed
+	print(e.violations)  # list of what failed
 ```
 
 Options:
@@ -615,18 +675,22 @@ A Protocol subclass that supports the `%` operator for concise runtime checks.
 ```python
 from sotkalib.type import CheckableProtocol
 
+
 class UserGetter(CheckableProtocol):
-    @property
-    def val(self) -> int: ...
+	@property
+	def val(self) -> int: ...
+
 
 class Impl:
-    val: int
+	val: int
+
 
 class Impl2:
-    val: str  # wrong type
+	val: str  # wrong type
 
-print(Impl % UserGetter)   # True
-print(Impl2 % UserGetter) # False (val is str, not int)
+
+print(Impl % UserGetter)  # True
+print(Impl2 % UserGetter)  # False (val is str, not int)
 ```
 
 ---

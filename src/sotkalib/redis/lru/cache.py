@@ -13,7 +13,8 @@ from .abcs import keyfunc
 from .settings import LRUSettings
 
 _no_rtype_with_typed_warn = lambda styp, func: warn(  # noqa: E731
-	f"TypedSerializer[{styp.__name__}] is used for caching a function ({func.__name__}) that has no type hints;"
+	f"TypedSerializer[{styp.__name__}] is used for "
+	f"caching a function ({func.__name__}) that has no type hints;"
 	" could not check type compatability, serializing may cause exceptions.",
 	stacklevel=2,
 	category=RuntimeWarning,
@@ -25,13 +26,27 @@ def _get_rtype(func) -> typing.Any | None:
 
 
 class RedisLRU:
-	__slots__ = ("_redis_factory", "_version", "_ttl", "_serializer", "_keyfunc", "_is_copy", "__pickle_allowed")
+	__slots__ = (
+		"_redis_factory",
+		"_version",
+		"_ttl",
+		"_serializer",
+		"_keyfunc",
+		"_is_copy",
+		"__pickle_allowed",
+	)
 
-	def __init__(self, redis_factory: AbstractAsyncContextManager[aioredis.Redis], settings: LRUSettings | None = None):
+	def __init__(
+		self,
+		redis_factory: AbstractAsyncContextManager[aioredis.Redis],
+		settings: LRUSettings | None = None,
+	):
 		if settings is None:
 			settings = LRUSettings()
 
-		self.__pickle_allowed = (os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes") or False
+		self.__pickle_allowed = (
+			os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes"
+		) or False
 		self._redis_factory = redis_factory
 		self._version = settings.version
 		self._ttl = settings.ttl
@@ -77,7 +92,9 @@ class RedisLRU:
 		self._keyfunc = kf
 		return self
 
-	def __call__[**P, R](self, func: generics.async_function[P, R]) -> generics.async_function[P, R]:
+	def __call__[**P, R](
+		self, func: generics.async_function[P, R]
+	) -> generics.async_function[P, R]:
 		if styp := getattr(self._serializer, "type_", None):
 			if rtyp := _get_rtype(func):
 				if not iface.compatible(styp, rtyp, strict=True):
@@ -90,7 +107,9 @@ class RedisLRU:
 
 		@wraps(func)
 		async def inner(*args: P.args, **kwargs: P.kwargs) -> R:
-			cache_func_key = self._keyfunc(self._version, func.__name__, *args, **kwargs)  # type: ignore[arg-type]
+			cache_func_key = self._keyfunc(
+				self._version, func.__name__, *args, **kwargs
+			)  # type: ignore[arg-type]
 			async with self._redis_factory as rc:
 				cached_result: bytes | str | None = await rc.get(cache_func_key)
 				if cached_result is not None:
@@ -99,7 +118,11 @@ class RedisLRU:
 					return self._serializer.unmarshal(cached_result)
 			result = await func(*args, **kwargs)
 			async with self._redis_factory as rc:
-				await rc.set(cache_func_key, self._serializer.marshal(result), ex=self._ttl)
+				await rc.set(
+					cache_func_key,
+					self._serializer.marshal(result),
+					ex=self._ttl,
+				)
 			return result
 
 		return inner

@@ -1,13 +1,18 @@
+import abc
 import types
 import typing
 from contextvars import ContextVar
 
-_COMPAT_CHECKING: ContextVar[set[tuple[int, int]]] = ContextVar("_COMPAT_CHECKING")
+_COMPAT_CHECKING: ContextVar[set[tuple[int, int]]] = ContextVar(
+	"_COMPAT_CHECKING"
+)
 
 
 def _raise_if_not_proto(typ: type):  # pragma: no cover
 	if not getattr(typ, "_is_protocol", False):  # std:typing.py, L2360
-		raise TypeError(f"expected protocol as a class to check against, found {type(typ)}")
+		raise TypeError(
+			f"expected protocol as a class to check against, found {type(typ)}"
+		)
 
 
 def _tname(typ: typing.Any) -> str:
@@ -27,7 +32,11 @@ class _splittype:  # noqa: N801
 
 
 def _is_proto(typ: typing.Any) -> bool:
-	return isinstance(typ, type) and getattr(typ, "_is_protocol", False) and typ is not typing.Protocol
+	return (
+		isinstance(typ, type)
+		and getattr(typ, "_is_protocol", False)
+		and typ is not typing.Protocol
+	)
 
 
 def _proto_compat(want: type, have: typing.Any) -> bool:
@@ -63,10 +72,15 @@ def _generic_compat(swtyp: _splittype, shtyp: _splittype, strict: bool) -> bool:
 		return True
 	if swtyp.args and not shtyp.args:
 		return False
-	return all(compatible(w, h, strict=strict) for w, h in zip(swtyp.args, shtyp.args, strict=False))
+	return all(
+		compatible(w, h, strict=strict)
+		for w, h in zip(swtyp.args, shtyp.args, strict=False)
+	)
 
 
-def compatible(want_typ: typing.Any, have_typ: typing.Any, *, strict: bool = False) -> bool:  # noqa
+def compatible(
+	want_typ: typing.Any, have_typ: typing.Any, *, strict: bool = False
+) -> bool:  # noqa
 	# identity / Any
 	if want_typ is have_typ or want_typ is typing.Any or have_typ is typing.Any:
 		return True
@@ -80,7 +94,10 @@ def compatible(want_typ: typing.Any, have_typ: typing.Any, *, strict: bool = Fal
 	# both unions
 	if _is_union(swtyp.origin) and _is_union(shtyp.origin):
 		# ALL union mbrs of `have` should be compatible with AT LEAST ONE union mbr of `have`.
-		return all(any(compatible(p, t, strict=strict) for t in shtyp.args) for p in swtyp.args)
+		return all(
+			any(compatible(p, t, strict=strict) for t in shtyp.args)
+			for p in swtyp.args
+		)
 
 	# have is oneof, want is not — every member must be compatible with want
 	if _is_union(shtyp.origin) and not _is_union(swtyp.origin):
@@ -100,12 +117,19 @@ def compatible(want_typ: typing.Any, have_typ: typing.Any, *, strict: bool = Fal
 		and shtyp.origin is not None
 		and isinstance(swtyp.origin, type)
 		and isinstance(shtyp.origin, type)
-		and issubclass(shtyp.origin, swtyp.origin)
 	):
-		return _generic_compat(swtyp, shtyp, strict)
+		if issubclass(shtyp.origin, swtyp.origin):
+			return _generic_compat(swtyp, shtyp, strict)
+		# ABCs define interface contracts — reject if have doesn't implement want
+		if isinstance(swtyp.origin, abc.ABCMeta):
+			return False
 
 	# want is parameterized, have is bare type matching origin
-	if swtyp.origin is not None and shtyp.origin is None and swtyp.origin is have_typ:
+	if (
+		swtyp.origin is not None
+		and shtyp.origin is None
+		and swtyp.origin is have_typ
+	):
 		return False
 
 	# want is bare type, have is parameterized with want as origin

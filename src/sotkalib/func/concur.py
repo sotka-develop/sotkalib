@@ -1,9 +1,11 @@
 import inspect
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from typing import Any, TypeIs
 
+from sotkalib.type.generics import any_function, async_function
 
-def asyncfn(fn: Callable[..., Any]) -> TypeIs[Callable[..., Coroutine[Any, Any, Any]]]:
+
+def asyncfn[**P, R](fn: any_function[P, R]) -> TypeIs[async_function[P, R]]:
 	return inspect.iscoroutinefunction(fn)
 
 

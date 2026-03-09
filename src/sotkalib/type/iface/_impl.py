@@ -1,4 +1,5 @@
 from typing import Any, Literal, TypeIs, overload
+from warnings import warn
 
 from sotkalib.type.unset import Unset, is_unset
 
@@ -15,7 +16,12 @@ from ._compat import (
 	_tname,
 )
 from ._error import DoesNotImplementError
-from ._extr import _get_protocol_members, _get_raw, _get_type_hints, _unwrap_method
+from ._extr import (
+	_get_protocol_members,
+	_get_raw,
+	_get_type_hints,
+	_unwrap_method,
+)
 
 
 @overload
@@ -57,7 +63,7 @@ def implements[T: object](
 ) -> TypeIs[T]: ...
 
 
-def implements[T: object](  # noqa
+def implements[T](  # noqa
 	cls: Any,
 	proto: type[T],
 	*,
@@ -68,23 +74,29 @@ def implements[T: object](  # noqa
 	infer: bool = False,
 ) -> bool | None:
 	"""
-	check if `typ` implements `proto` at runtime.
+	check if `cls` implements `proto` at runtime
 
 	Args:
-		cls: the class to check.
-		proto: the Protocol class to check against.
-		signatures: whether to compare callable signatures.
-		type_hints: whether to compare type annotations.
-		disallow_extra: if True, also flag extra parameters not in protocol.
+		cls: the type (-instance) to check
+		proto: the Protocol class to check against
+		signatures: whether to compare callable signatures
+		type_hints: whether to compare type annotations
+		disallow_extra: if True, also flag extra parameters not in protocol
 		early: **deprecated, you may want to use `infer` instead**
 		infer: if True, function will return a bool, whether the interface is implemented or not,
 			instead of raising an exception
 
 	Raises:
-		DoesNotImplementError: if `typ` doesn't implement `proto`
+		DoesNotImplementError: if `cls` doesn't implement `proto`
 	"""
 
 	if early or infer:
+		if early:
+			warn(
+				"`early` parameter is deprecated and is scheduled for removal in v0.3.0; use `infer` instead",
+				stacklevel=2,
+				category=DeprecationWarning,
+			)
 		return _implements_early(
 			cls=cls,
 			proto=proto,
@@ -101,19 +113,26 @@ def implements[T: object](  # noqa
 	viols = []
 	_raise_if_not_proto(proto)
 	protombrs = _get_protocol_members(proto)
-	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
+	proto_typehints, cls_typehints = (
+		_get_type_hints(proto),
+		_get_type_hints(cls),
+	)
 
 	for name, protombr in protombrs.items():
 		clsmbr = getattr(instance, name, Unset) or getattr(cls, name, Unset)
 
 		# --- missing ---
 		if is_unset(clsmbr):
-			if viol := _check_missing(name, proto, proto_typehints, cls_typehints):
+			if viol := _check_missing(
+				name, proto, proto_typehints, cls_typehints
+			):
 				viols.append(viol)
 			continue
 
 		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
-		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
+		protombr_unwrapped, protombr_kind = _unwrap_method(
+			_get_raw(proto, name)
+		)
 		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
@@ -153,7 +172,9 @@ def implements[T: object](  # noqa
 
 		# --- data attr ---
 		if callable(clsmbr):
-			viols.append(f"expected `{name}` to be a data attribute, found callable")
+			viols.append(
+				f"expected `{name}` to be a data attribute, found callable"
+			)
 			continue
 
 		if type_hints and _attrs_incompat(name, proto_typehints, cls_typehints):
@@ -167,7 +188,9 @@ def implements[T: object](  # noqa
 			# already checked above OR protected
 			continue
 
-		if viol := _check_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
+		if viol := _check_annot_attrs(
+			attr, cls, cls_typehints, protombr_type, type_hints
+		):
 			viols.append(viol)
 
 	if any(viols):
@@ -185,17 +208,17 @@ def _implements_early[T: object](
 	disallow_extra: bool = False,
 ) -> bool:
 	"""
-	check if `typ` implements `proto` at runtime and exits early by returning a boolean
+	check if `cls` implements `proto` at runtime and exits early by returning a boolean
 
 	Args:
-		cls: the class to check.
-		proto: the Protocol class to check against.
-		signatures: whether to compare callable signatures.
-		type_hints: whether to compare type annotations.
-		disallow_extra: if True, also flag extra parameters not in protocol.
+		cls: the type (-instance) to check
+		proto: the Protocol class to check against
+		signatures: whether to compare callable signatures
+		type_hints: whether to compare type annotations
+		disallow_extra: if True, also flag extra parameters not in protocol
 
 	Raises:
-		DoesNotImplementError: if `typ` doesn't implement `proto`
+		DoesNotImplementError: if `cls` doesn't implement `proto`
 	"""
 	is_instance = isinstance(cls, object) and not isinstance(cls, type)
 	instance: object = cls if is_instance else object()
@@ -204,7 +227,10 @@ def _implements_early[T: object](
 
 	_raise_if_not_proto(proto)
 	protombrs = _get_protocol_members(proto)
-	proto_typehints, cls_typehints = _get_type_hints(proto), _get_type_hints(cls)
+	proto_typehints, cls_typehints = (
+		_get_type_hints(proto),
+		_get_type_hints(cls),
+	)
 
 	for name, protombr in protombrs.items():
 		clsmbr = getattr(instance, name, Unset) or getattr(cls, name, Unset)
@@ -216,7 +242,9 @@ def _implements_early[T: object](
 			continue
 
 		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
-		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
+		protombr_unwrapped, protombr_kind = _unwrap_method(
+			_get_raw(proto, name)
+		)
 		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
@@ -266,7 +294,9 @@ def _implements_early[T: object](
 			# already checked above OR protected
 			continue
 
-		if _check_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
+		if _check_annot_attrs(
+			attr, cls, cls_typehints, protombr_type, type_hints
+		):
 			return False
 
 	return True

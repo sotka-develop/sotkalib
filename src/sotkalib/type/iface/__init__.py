@@ -5,4 +5,9 @@ from ._error import DoesNotImplementError
 from ._impl import implements
 from ._proto_mixin import CheckableProtocol
 
-__all__ = ("CheckableProtocol", "DoesNotImplementError", "implements", "compatible")
+__all__ = (
+	"CheckableProtocol",
+	"DoesNotImplementError",
+	"implements",
+	"compatible",
+)

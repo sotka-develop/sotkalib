@@ -1,4 +1,4 @@
-from sotkalib.type import Unset, is_set
+from sotkalib.type import Unset, UnsetT, is_set
 
 
 class TestUnset:
@@ -9,7 +9,7 @@ class TestUnset:
 		assert bool(Unset) is False
 
 	def test_identity(self):
-		assert Unset is Unset
+		assert isinstance(Unset, UnsetT)
 
 
 class TestUnsetFunc:

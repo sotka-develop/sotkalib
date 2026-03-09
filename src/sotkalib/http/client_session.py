@@ -36,7 +36,9 @@ def _make_ssl_context(disable_tls13: bool = False) -> ssl.SSLContext:
 		ctx.load_verify_locations(certifi.where())
 
 	ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-	ctx.maximum_version = ssl.TLSVersion.TLSv1_2 if disable_tls13 else ssl.TLSVersion.TLSv1_3
+	ctx.maximum_version = (
+		ssl.TLSVersion.TLSv1_2 if disable_tls13 else ssl.TLSVersion.TLSv1_3
+	)
 
 	ctx.set_ciphers(
 		"TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:"
@@ -87,7 +89,9 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 			**session_kwargs,
 		)
 
-		self._logger.debug(f"HTTPSession initialized with timeout: {self.config.timeout}")
+		self._logger.debug(
+			f"HTTPSession initialized with timeout: {self.config.timeout}"
+		)
 		return self
 
 	async def __aexit__(
@@ -100,20 +104,30 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 			await self._session.close()
 
 	def _build_pipeline(self) -> Next[R]:
-		async def core_request(ctx: RequestContext) -> aiohttp.ClientResponse | None:
+		async def core_request(
+			ctx: RequestContext,
+		) -> aiohttp.ClientResponse | None:
 			return await self._execute_request(ctx)
 
 		pipeline: Next[Any] = core_request
 		for middleware in reversed(self._middlewares):
-			pipeline = (lambda mw, nxt: lambda c: mw(c, nxt))(middleware, pipeline)  # noqa: PLC3002
+			pipeline = (lambda mw, nxt: lambda c: mw(c, nxt))(
+				middleware, pipeline
+			)  # noqa: PLC3002
 
 		return pipeline
 
-	async def _execute_request(self, ctx: RequestContext) -> aiohttp.ClientResponse | None:
+	async def _execute_request(
+		self, ctx: RequestContext
+	) -> aiohttp.ClientResponse | None:
 		if self._session is None:
-			raise RuntimeError("HTTPSession must be used as async context manager")
+			raise RuntimeError(
+				"HTTPSession must be used as async context manager"
+			)
 
-		response = await self._session.request(ctx.method, ctx.url, **ctx.to_request_kwargs())
+		response = await self._session.request(
+			ctx.method, ctx.url, **ctx.to_request_kwargs()
+		)
 		ctx.response = response
 
 		return await self._handle_status(ctx, response)
@@ -162,7 +176,9 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 				ctx.finished_at = time.monotonic()
 				return result
 
-			except merge_tuples(self.config.exception_settings.to_retry, (StatusRetryError,)) as e:
+			except merge_tuples(
+				self.config.exception_settings.to_retry, (StatusRetryError,)
+			) as e:
 				ctx.errors.append(e)
 				ctx.last_error = e
 				await self._handle_retry(ctx, e)
@@ -189,7 +205,9 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 				f"failed after {self.config.maximum_retries} retries: {type(e).__name__}: {e}"
 			) from e
 
-		delay = self.config.base * min(MAXIMUM_BACKOFF, self.config.backoff**ctx.attempt)
+		delay = self.config.base * min(
+			MAXIMUM_BACKOFF, self.config.backoff**ctx.attempt
+		)
 		self._logger.debug(
 			f"Retry {ctx.attempt + 1}/{ctx.max_attempts} for {ctx.method} {ctx.url} "
 			f"after {delay:.2f}s (error: {type(e).__name__})"
@@ -208,8 +226,9 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 			raise exc_cls(*args) from e
 		raise exc_cls(*args, **kwargs) from e
 
-	async def _handle_exception(self, ctx: RequestContext, e: Exception) -> None:
-		"""Handle unspecified exceptions according to settings."""
+	async def _handle_exception(
+		self, ctx: RequestContext, e: Exception
+	) -> None:
 		if self.config.exception_settings.unspecified == "raise":
 			raise e
 		await self._handle_retry(ctx, e)
@@ -224,8 +243,6 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		json: Any = None,
 		**kwargs: Any,
 	) -> RequestContext:
-		"""Create a RequestContext for the given request parameters."""
-		# Apply user agent if configured
 		if self.config.useragent_factory is not None:
 			if headers is None:
 				headers = {}
@@ -252,7 +269,9 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 		json: Any = None,
 		**kwargs: Any,
 	) -> R:
-		ctx = self._create_context(method, url, params, headers, data, json, **kwargs)
+		ctx = self._create_context(
+			method, url, params, headers, data, json, **kwargs
+		)
 		return await self._request_with_retry(ctx)
 
 	async def get(self, url: str, **kwargs: Any) -> R:

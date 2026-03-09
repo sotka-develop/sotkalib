@@ -1,6 +1,6 @@
 [project]
 name = "sotkalib"
-version = "0.2.3"
+version = "0.2.4"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
@@ -58,9 +58,10 @@ disable-search-path-heuristics = true
 [tool.pyrefly.errors]
 bad-assignment = false
 invalid-argument = false
+bad-return = true
 
 [tool.ruff]
-line-length = 120
+line-length = 80
 target-version = "py313"
 src = ["src"]
 

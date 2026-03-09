@@ -84,14 +84,14 @@ class AppSettings:
 
 		"""
 
-		def _unwrap_type(tp: type) -> type:
+		def unwrap_type(tp: type) -> type:
 			if isinstance(tp, UnionType):
 				args = [a for a in get_args(tp) if a is not NoneType]
 				return args[0] if args else NoneType
 			return tp
 
 		def evaluate_var(_type: type, _var: str) -> Any:
-			_type = _unwrap_type(_type)
+			_type = unwrap_type(_type)
 			if _type is NoneType:
 				return None
 			if _type is bool:
@@ -100,72 +100,102 @@ class AppSettings:
 
 		load_dotenv(dotenv_path=dotenv_path)
 
-		self.__log = get_logger("utilities.appsettings") if logger is None else logger
-		self.__deferred = []
-		self.__strict = strict
+		self._log = (
+			get_logger("utilities.appsettings") if logger is None else logger
+		)
+		self._deferred = []
+		self._strict = strict
 
 		cls_annotations = self.__class__.__annotations__
 		cls_dict = self.__class__.__dict__
 
 		settings_fields: dict[str, SettingsField] = {
-			attr: val for attr, val in cls_dict.items() if isinstance(val, SettingsField)
+			attr: val
+			for attr, val in cls_dict.items()
+			if isinstance(val, SettingsField)
 		}
 
 		for attr, settings_field in settings_fields.items():
 			if explicit_format and not re.fullmatch(r"[A-Z][A-Z0-9_]*", attr):
-				raise AttributeError("AppSettings attributes should contain only capital letters and underscores")
+				raise AttributeError(
+					"AppSettings attributes should contain only capital letters and underscores"
+				)
 
 			annotated = cls_annotations.get(attr, NoneType)
 			string_value = getenv(attr, None)
 
 			if string_value is None:
-				self.__validate_empty_string_value(attr, settings_field)
+				self._validate_empty_string_value(attr, settings_field)
 				continue
 
 			typed_value = evaluate_var(annotated, string_value)
 
-			setattr(self, attr, self.__validate(typed_value, strict=self.__strict))
-			self.__log.debug(f"evaluated {attr} from environment")
+			setattr(
+				self, attr, self._validate(typed_value, strict=self._strict)
+			)
+			self._log.debug(f"evaluated {attr} from environment")
 
 		self.__post_init__()
 
-	def __validate_empty_string_value(self, attr: str, settings_field: SettingsField) -> None:
+	def _validate_empty_string_value(
+		self, attr: str, settings_field: SettingsField
+	) -> None:
 		if settings_field.default is not None:
-			setattr(self, attr, self.__validate(settings_field.default, strict=self.__strict))
-			self.__log.debug(f"evaluated {attr} from default")
+			setattr(
+				self,
+				attr,
+				self._validate(settings_field.default, strict=self._strict),
+			)
+			self._log.debug(f"evaluated {attr} from default")
 			return
 
 		if settings_field.factory is not None:
 			if isinstance(settings_field.factory, str):
-				self.__deferred.append((attr, settings_field.factory))
-				self.__log.debug(f"defer {attr} init as factory is a str; => property")
+				self._deferred.append((attr, settings_field.factory))
+				self._log.debug(
+					f"defer {attr} init as factory is a str; => property"
+				)
 				return
 
 			if callable(settings_field.factory):
-				setattr(self, attr, self.__validate(settings_field.factory(), strict=self.__strict))
-				self.__log.debug(f"evaluated {attr} from factory")
+				setattr(
+					self,
+					attr,
+					self._validate(
+						settings_field.factory(), strict=self._strict
+					),
+				)
+				self._log.debug(f"evaluated {attr} from factory")
 				return
 
-			raise TypeError(f"unknown type for a factory: {type(settings_field.factory)}")
+			raise TypeError(
+				f"unknown type for a factory: {type(settings_field.factory)}"
+			)
 
 		if settings_field.nullable:
 			setattr(self, attr, None)
-			self.__log.debug(f"evaluated {attr} as None (nullable)")
+			self._log.debug(f"evaluated {attr} as None (nullable)")
 			return
 
 		raise ValueError(f"reqd field {attr} was not found in .env")
 
 	def __post_init__(self) -> None:
-		for attr, factory in self.__deferred:
+		for attr, factory in self._deferred:
 			if factory not in self.__class__.__dict__:
-				raise AttributeError(f"property {factory} was not found in {self.__class__.__name__}")
+				raise AttributeError(
+					f"property {factory} was not found in {self.__class__.__name__}"
+				)
 			if not isinstance(getattr(self.__class__, factory), property):
 				raise TypeError(f"method {factory} is not a property")
-			self.__log.debug(f"evaluated {attr} from property {factory}")
-			setattr(self, attr, self.__validate(getattr(self, factory), strict=self.__strict))
+			self._log.debug(f"evaluated {attr} from property {factory}")
+			setattr(
+				self,
+				attr,
+				self._validate(getattr(self, factory), strict=self._strict),
+			)
 
 	@staticmethod
-	def __validate[T: Any](val: T, strict: bool) -> T | None:
+	def _validate[T: Any](val: T, strict: bool) -> T | None:
 		typeval = type(val)
 		allowed = get_args(AllowedTypes.__value__)
 
@@ -173,7 +203,9 @@ class AppSettings:
 			if strict:
 				raise TypeError(f"{typeval} is not an allowed immutable type")
 			else:
-				warn(f"{typeval} is mutable, setting value to None", stacklevel=2)
+				warn(
+					f"{typeval} is mutable, setting value to None", stacklevel=2
+				)
 				return None
 
 		return val

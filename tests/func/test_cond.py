@@ -13,11 +13,17 @@ class TestSuppress:
 			raise ValueError("error")
 
 	def test_mode_exact_does_not_suppress_non_matching(self):
-		with pytest.raises(TypeError), suppress(mode="exact", exact_types=[ValueError]):
+		with (
+			pytest.raises(TypeError),
+			suppress(mode="exact", exact_types=[ValueError]),
+		):
 			raise TypeError("error")
 
 	def test_mode_exact_warns_when_no_excts(self):
-		with pytest.warns(UserWarning, match="exact"), suppress(mode="exact", exact_types=None):
+		with (
+			pytest.warns(UserWarning, match="exact"),
+			suppress(mode="exact", exact_types=None),
+		):
 			pass
 
 	def test_mode_all_suppresses_any_exception(self):

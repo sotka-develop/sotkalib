@@ -1,20 +1,26 @@
 import functools
 import inspect
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from contextlib import (
 	asynccontextmanager,
 	contextmanager,
 )
 from dataclasses import dataclass
-from typing import Self, overload
+from typing import Concatenate, Self, overload
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from sotkalib.log import get_logger
-from sotkalib.type.generics import any_method, async_contextmgr, async_method, contextmgr, coro, method
+from ..log import get_logger
+from ..type.generics import (
+	async_contextmgr,
+	async_method,
+	contextmgr,
+	coro,
+	method,
+)
 
 
 @overload
@@ -27,14 +33,22 @@ def _raise_on_uninitialized[**p, r](
 ) -> async_method["Database", p, r]: ...
 
 
-def _raise_on_uninitialized[**p, r](func: any_method["Database", p, r]) -> any_method["Database", p, r]:
+def _raise_on_uninitialized[**p, r](
+	func: Callable[Concatenate["Database", p], r | coro[r]],
+) -> Callable[Concatenate["Database", p], r | coro[r]]:
 	@functools.wraps(func)
-	def _wrap(self: "Database", *args: p.args, **kwargs: p.kwargs) -> r | coro[r]:
+	def _wrap(
+		self: "Database", *args: p.args, **kwargs: p.kwargs
+	) -> r | coro[r]:
 		if inspect.iscoroutinefunction(func):
 			if not self._async_enabled:
-				raise RuntimeError("async engine is not initialized for this instance")
+				raise RuntimeError(
+					"async engine is not initialized for this instance"
+				)
 		elif not self._sync_enabled:
-			raise RuntimeError("sync engine is not initialized for this instance")
+			raise RuntimeError(
+				"sync engine is not initialized for this instance"
+			)
 
 		return func(self, *args, **kwargs)
 
@@ -60,7 +74,9 @@ class DatabaseSettings:
 	def async_uri(self) -> str:
 		if self.async_driver is None:
 			raise ValueError("tried to get async uri when driver is not passed")
-		return self.uri.replace("postgresql://", "postgresql+" + self.async_driver + "://")
+		return self.uri.replace(
+			"postgresql://", "postgresql+" + self.async_driver + "://"
+		)
 
 
 class Database:
@@ -166,7 +182,9 @@ class Database:
 
 	@property
 	def asession(self) -> async_contextmgr[AsyncSession]:
-		return self.asession_safe if self._implicit_safe else self.asession_unsafe
+		return (
+			self.asession_safe if self._implicit_safe else self.asession_unsafe
+		)
 
 	@property
 	def async_session(self) -> async_contextmgr[AsyncSession]:
@@ -214,7 +232,9 @@ def _safe(sm: sessionmaker[Session]) -> Generator[Session]:
 
 
 @asynccontextmanager
-async def _asafe(asm: async_sessionmaker[AsyncSession]) -> AsyncGenerator[AsyncSession]:
+async def _asafe(
+	asm: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncSession]:
 	session = None
 
 	try:

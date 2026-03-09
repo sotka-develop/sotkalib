@@ -1,16 +1,20 @@
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
-from typing import Literal
+from typing import Any, Literal, TypeIs
 from warnings import warn
 
 
 @contextmanager
 def suppress(
-	mode: Literal["all", "exact"] = "all", exact_types: Sequence[type[BaseException]] | None = None
+	mode: Literal["all", "exact"] = "all",
+	exact_types: Sequence[type[BaseException]] | None = None,
 ) -> Generator[None]:
 	if exact_types is None:
 		if mode == "exact":
-			warn("mode = 'exact' and excts = None is passed to suppress, bubbling exception up", stacklevel=2)
+			warn(
+				"mode = 'exact' and excts = None is passed to suppress, bubbling exception up",
+				stacklevel=2,
+			)
 		exact_types = ()
 
 	try:
@@ -30,6 +34,10 @@ def or_raise[T](v: T | None, msg: str = "v is None") -> T:
 		raise ValueError(msg)
 
 	return v
+
+
+def is_[T](v: Any) -> TypeIs[T]:
+	return isinstance(v, T)
 
 
 def type_or_raise[T](v: object, exp: type[T], msg: str | None = None) -> T:

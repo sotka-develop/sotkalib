@@ -1,7 +1,10 @@
 import pytest
 
 from sotkalib.exceptions.handlers.args_incl_error import ArgsIncludedError
-from sotkalib.exceptions.handlers.core import aexception_handler, exception_handler
+from sotkalib.exceptions.handlers.core import (
+	aexception_handler,
+	exception_handler,
+)
 
 
 class TestArgsIncludedError:

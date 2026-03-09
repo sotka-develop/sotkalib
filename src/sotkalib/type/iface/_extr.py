@@ -59,7 +59,9 @@ def _get_protocol_members(protocol: type) -> dict[str, typing.Any]:
 			if not attr.startswith("_abc_") and attr not in _skip_dunder:
 				# Use __dict__ value if present; for annotation-only members store None
 
-				attrs[attr] = base.__dict__.get(attr) if attr in base.__dict__ else None
+				attrs[attr] = (
+					base.__dict__.get(attr) if attr in base.__dict__ else None
+				)
 
 	return attrs
 

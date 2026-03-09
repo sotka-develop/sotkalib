@@ -6,22 +6,34 @@ from ._impl import implements
 
 
 class _CheckableMeta(_ProtocolMeta):
-	def __new__(mcs, name: str, bases: tuple, namespace: dict, **kwargs):
-		cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-		mcs._protocol_cls = cls
-		cls._is_protocol = True  # pyrefly:ignore
+	def __new__(mcls, name: str, bases: tuple, namespace: dict, **kwargs):
+		inst = super().__new__(mcls, name, bases, namespace, **kwargs)
+		inst._is_protocol = True  # pyrefly: ignore[missing-attribute]
+		mcls._protocol_cls = inst
 
-		return cls
+		return inst
 
-	def __rmod__(self, other: type | object) -> bool:
-		return implements(other, self._protocol_cls, early=True)
+	def __rmod__(self, other: object) -> bool:
+		return implements(other, self._protocol_cls, infer=True)
 
 	@property
-	def valid[T: "_CheckableMeta"](self: type[T]) -> func[[type | object], TypeIs[T]]:
-		def _(other: type | object) -> TypeIs[T]:
-			return implements(other, self._protocol_cls, early=True)
+	def valid[T: "CheckableProtocol"](
+		self: type[T],
+	) -> func[[object], TypeIs[T]]:
+		def _(other: object) -> TypeIs[T]:
+			return implements(other, self._protocol_cls, infer=True)
+
+		return _
+
+	@property
+	def impl_by[T: "CheckableProtocol"](
+		self: type[T],
+	) -> func[[object], TypeIs[T]]:
+		def _(other: object) -> TypeIs[T]:
+			return implements(other, self._protocol_cls, infer=True)
 
 		return _
 
 
-class CheckableProtocol(Protocol, metaclass=_CheckableMeta): ...
+class CheckableProtocol(Protocol, metaclass=_CheckableMeta):
+	pass

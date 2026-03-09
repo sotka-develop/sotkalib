@@ -1,4 +1,4 @@
-from . import iface
+from . import generics, iface
 from .unset import Unset, UnsetT, _UnsetType, is_set
 
 __all__ = [
@@ -7,4 +7,5 @@ __all__ = [
 	"_UnsetType",
 	"UnsetT",
 	"iface",
+	"generics",
 ]

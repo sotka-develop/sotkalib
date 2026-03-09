@@ -1,30 +1,35 @@
-from typing import TYPE_CHECKING, final, override
+from typing import Any, final, override
 
 import sqlalchemy as sa
 from pydantic import BaseModel
+from sqlalchemy import Dialect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import ColumnProperty, DeclarativeBase
 from sqlalchemy.orm.attributes import flag_modified
-
-if TYPE_CHECKING:
-	from typing import Any  # noqa
-	from sqlalchemy import Dialect  # noqa
-	from sqlalchemy.sql.type_api import TypeEngine  # noqa
+from sqlalchemy.sql.type_api import TypeEngine
 
 
 @final
 class PydanticJSON(sa.types.TypeDecorator["BaseModel"]):
 	impl = sa.types.JSON
 
-	def __init__(self, pydantic_type: type["BaseModel"], postgres_explicit_json: bool = False) -> None:
+	def __init__(
+		self,
+		pydantic_type: type["BaseModel"],
+		postgres_explicit_json: bool = False,
+	) -> None:
 		super().__init__()
 		if not issubclass(pydantic_type, BaseModel):
-			raise TypeError(f"{pydantic_type.__name__} is not a subclass of `pydantic.BaseModel`")
+			raise TypeError(
+				f"{pydantic_type.__name__} is not a subclass of `pydantic.BaseModel`"
+			)
 		self.pydantic_type = pydantic_type
 		self.postgres_explicit_json = postgres_explicit_json
 
 	@override
-	def load_dialect_impl(self, dialect: "Dialect") -> "TypeEngine[JSONB | sa.JSON]":
+	def load_dialect_impl(
+		self, dialect: "Dialect"
+	) -> "TypeEngine[JSONB | sa.JSON]":
 		if dialect.name == "postgresql" and not self.postgres_explicit_json:
 			return dialect.type_descriptor(JSONB())
 		else:
@@ -40,7 +45,9 @@ class PydanticJSON(sa.types.TypeDecorator["BaseModel"]):
 			return None
 
 		if not isinstance(value, BaseModel):
-			raise TypeError(f"{value.__class__.__name__} is not an instance of `pydantic.BaseModel`")
+			raise TypeError(
+				f"{value.__class__.__name__} is not an instance of `pydantic.BaseModel`"
+			)
 
 		return value.model_dump(mode="json")
 
@@ -58,7 +65,7 @@ class PydanticJSON(sa.types.TypeDecorator["BaseModel"]):
 		return self.pydantic_type
 
 
-def flag_pydantic_changes[T: DeclarativeBase](target: T) -> None:
+def flag_pydantic_changes[T: DeclarativeBase](_, __, target: T) -> None:
 	"""
 	This function is used to flag changes to `PydanticJSON` in SQLAlchemy models.
 
@@ -88,12 +95,18 @@ def flag_pydantic_changes[T: DeclarativeBase](target: T) -> None:
 		if not isinstance(prop, ColumnProperty):
 			continue
 
-		is_pyd_type = any(isinstance(col.type, PydanticJSON) for col in prop.columns)
+		is_pyd_type = any(
+			isinstance(col.type, PydanticJSON) for col in prop.columns
+		)
 
 		if is_pyd_type:
 			hist = attr.history
 			original_dict = hist.unchanged[0] if hist.unchanged else None
-			current_dict = attr.value.model_dump() if issubclass(attr.value.__class__, BaseModel) else attr.value
+			current_dict = (
+				attr.value.model_dump()
+				if issubclass(attr.value.__class__, BaseModel)
+				else attr.value
+			)
 
 			if original_dict != current_dict:
 				flag_modified(target, key)

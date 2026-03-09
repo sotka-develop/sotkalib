@@ -128,4 +128,8 @@ class TestMultipleMixins:
 
 	def test_values_with_multiple_mixins(self):
 		"""Test values method works with multiple mixins."""
-		assert list(Status.values()) == [Status.pending, Status.active, Status.completed]
+		assert list(Status.values()) == [
+			Status.pending,
+			Status.active,
+			Status.completed,
+		]

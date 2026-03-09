@@ -55,7 +55,9 @@ def import_object(object_spec: str, app_dir: str | None = None) -> Any:
 
 	import_spec = object_spec.split(":")
 	if len(import_spec) != _min_params:
-		raise ValueError("you should provide object path in `module:variable` format.")
+		raise ValueError(
+			"you should provide object path in `module:variable` format."
+		)
 	with add_cwd_in_path():
 		if app_dir:
 			sys.path.insert(0, app_dir)
@@ -105,7 +107,9 @@ def get_type_from_fqn(_result: str | bytes | None) -> Any:
 	if _result is None:
 		return _imported_type
 
-	_decoded_result = _result.decode() if isinstance(_result, bytes) else _result
+	_decoded_result = (
+		_result.decode() if isinstance(_result, bytes) else _result
+	)
 	try:
 		_imported_type = import_object(_decoded_result)
 	except Exception as exc:

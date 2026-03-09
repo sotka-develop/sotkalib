@@ -14,7 +14,9 @@ def _check_signatures(  # noqa: PLR0912
 	typobj: typing.Any,
 	strict: bool,
 ) -> list[str]:
-	def _method_sig_params_and_rtyp(typ: typing.Any) -> tuple[Mapping[str, Parameter], typing.Any]:
+	def _method_sig_params_and_rtyp(
+		typ: typing.Any,
+	) -> tuple[Mapping[str, Parameter], typing.Any]:
 		try:
 			sig = inspect.signature(typ)
 		except (ValueError, TypeError):
@@ -24,25 +26,25 @@ def _check_signatures(  # noqa: PLR0912
 
 		return param, sig.return_annotation
 
-	_viols = []
-	_protoparam, _protort = _method_sig_params_and_rtyp(protobj)
-	_typparam, _typrt = _method_sig_params_and_rtyp(typobj)
+	violations = []
+	proto_params, proto_rt = _method_sig_params_and_rtyp(protobj)
+	typ_params, typ_rt = _method_sig_params_and_rtyp(typobj)
 
 	# check missing parameters
-	for pattr, pparam in _protoparam.items():
-		if pattr not in _typparam:
-			_viols.append(_missing_pattr(_typparam, name, pparam))
+	for pattr, pparam in proto_params.items():
+		if pattr not in typ_params:
+			violations.append(_missing_pattr(typ_params, name, pparam))
 			continue
 
-		tparam = _typparam[pattr]
+		tparam = typ_params[pattr]
 
-		_viols.append(_check_param_kind(name, tparam, pparam))
-		_viols.append(_check_param_annot(name, tparam, pparam))
+		violations.append(_check_param_kind(name, tparam, pparam))
+		violations.append(_check_param_annot(name, tparam, pparam))
 
 	if strict:
 		# extra params in cls that aren't in protocol
-		for pattr, tparam in _typparam.items():
-			if pattr not in _protoparam:
+		for pattr, tparam in typ_params.items():
+			if pattr not in proto_params:
 				if tparam.kind in (
 					inspect.Parameter.VAR_POSITIONAL,
 					inspect.Parameter.VAR_KEYWORD,
@@ -50,23 +52,33 @@ def _check_signatures(  # noqa: PLR0912
 					continue
 				if tparam.default is not inspect.Parameter.empty:
 					continue  # has default, so it's okay
-				_viols.append(f"unexpected required parameter `{pattr}` on method `{name}`")
+				violations.append(
+					f"unexpected required parameter `{pattr}` on method `{name}`"
+				)
 
-	_viols.append(_check_meth_rtype(name, _typrt, _protort))
+	violations.append(_check_meth_rtype(name, typ_rt, proto_rt))
 
-	return [v for v in _viols if v is not None]
+	return [v for v in violations if v is not None]
 
 
-def _missing_pattr(_typparam: Mapping[str, Parameter], name: str, pparam: Parameter) -> str | None:
+def _missing_pattr(
+	_typparam: Mapping[str, Parameter], name: str, pparam: Parameter
+) -> str | None:
 	# *args/**kwargs in cls can absorb missing named params
-	_contains_posvar = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in _typparam.values())
-	_contains_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in _typparam.values())
+	contains_posvar = any(
+		p.kind == inspect.Parameter.VAR_POSITIONAL for p in _typparam.values()
+	)
+	contains_kwargs = any(
+		p.kind == inspect.Parameter.VAR_KEYWORD for p in _typparam.values()
+	)
 	if pparam.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
-		if not (_contains_posvar or _contains_kwargs):
+		if not (contains_posvar or contains_kwargs):
 			return f"expected parameter `{pparam.name}` on method `{name}`"
 	elif pparam.kind == inspect.Parameter.KEYWORD_ONLY:
-		if not _contains_kwargs:
-			return f"expected keyword parameter `{pparam.name}` on method `{name}`"
+		if not contains_kwargs:
+			return (
+				f"expected keyword parameter `{pparam.name}` on method `{name}`"
+			)
 		# otherwise absorbed (*, attr: str = None, **kw) vs proto (*, **kw)
 	else:
 		return f"expected parameter `{pparam.name}` on method `{name}`"
@@ -74,7 +86,9 @@ def _missing_pattr(_typparam: Mapping[str, Parameter], name: str, pparam: Parame
 	return None
 
 
-def _check_meth_rtype(name: str, _trtype: typing.Any, _prtype: typing.Any) -> str | None:
+def _check_meth_rtype(
+	name: str, _trtype: typing.Any, _prtype: typing.Any
+) -> str | None:
 	if (
 		is_set(_prtype)
 		and _prtype is not inspect.Parameter.empty
@@ -86,10 +100,15 @@ def _check_meth_rtype(name: str, _trtype: typing.Any, _prtype: typing.Any) -> st
 	return None
 
 
-def _check_param_kind(name: str, tparam: Parameter, pparam: Parameter) -> str | None:
+def _check_param_kind(
+	name: str, tparam: Parameter, pparam: Parameter
+) -> str | None:
 	if not (
 		(pparam.kind == tparam.kind)
-		or (pparam.kind == Parameter.POSITIONAL_OR_KEYWORD and tparam.kind == Parameter.POSITIONAL_ONLY)
+		or (
+			pparam.kind == Parameter.POSITIONAL_OR_KEYWORD
+			and tparam.kind == Parameter.POSITIONAL_ONLY
+		)
 	):
 		return (
 			f"expected parameter `{pparam.name}` on method `{name}` "
@@ -98,7 +117,9 @@ def _check_param_kind(name: str, tparam: Parameter, pparam: Parameter) -> str | 
 	return None
 
 
-def _check_param_annot(name: str, tparam: Parameter, pparam: Parameter) -> str | None:
+def _check_param_annot(
+	name: str, tparam: Parameter, pparam: Parameter
+) -> str | None:
 	if (
 		pparam.annotation is not inspect.Parameter.empty
 		and tparam.annotation is not inspect.Parameter.empty
@@ -160,8 +181,14 @@ def _check_property(
 	proto_type = proto_typehints.get(name)
 	if proto_type is None and protombr:
 		proto_type = _get_type_hints(protombr).get("return")
-	if proto_type and name in cls_typehints and not compatible(proto_type, cls_typehints[name]):
-		return [f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(cls_typehints[name])}"]
+	if (
+		proto_type
+		and name in cls_typehints
+		and not compatible(proto_type, cls_typehints[name])
+	):
+		return [
+			f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(cls_typehints[name])}"
+		]
 	return []
 
 
@@ -176,7 +203,9 @@ def _check_two_props(
 	proto_ret = _get_type_hints(proto_fget).get("return")
 	typ_ret = _get_type_hints(typ_fget).get("return")
 	if proto_ret and typ_ret and not compatible(proto_ret, typ_ret):
-		return [f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(typ_ret)}"]
+		return [
+			f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(typ_ret)}"
+		]
 	return []
 
 
@@ -189,7 +218,10 @@ def _check_method_kind(
 	clsmbr_kind: MethodKind,
 ) -> str | None:
 	"""staticmethod/classmethod kind mismatch."""
-	if protombr_kind in ("static", "classmethod") and protombr_kind != clsmbr_kind:
+	if (
+		protombr_kind in ("static", "classmethod")
+		and protombr_kind != clsmbr_kind
+	):
 		return f"expected `{name}` to be {protombr_kind}, found {clsmbr_kind}"
 	return None
 
@@ -209,7 +241,9 @@ def _check_callable(
 	signatures: bool,
 ) -> list[str]:
 	if not callable(clsmbr):
-		return [f"expected `{name}` to be callable, found {type(clsmbr).__name__}"]
+		return [
+			f"expected `{name}` to be callable, found {type(clsmbr).__name__}"
+		]
 	elif signatures:
 		p = protombr_unwrapped if protombr_kind == "static" else protombr
 		t = clsmbr_unwrapped if clsmbr_kind == "static" else clsmbr
@@ -218,12 +252,26 @@ def _check_callable(
 	return []
 
 
-def _check_annot_attrs(attr: str, cls: type, cls_typehints: dict, protombr_type: type, type_hints: bool):
+def _check_annot_attrs(
+	attr: str,
+	cls: type,
+	cls_typehints: dict,
+	protombr_type: type,
+	type_hints: bool,
+):
 	if not hasattr(cls, attr) and attr not in cls_typehints:
 		return f"expected annotated attribute `{attr}` (type={_tname(protombr_type)})"
-	elif hasattr(cls, attr) and callable(getattr(cls, attr)) and attr not in cls_typehints:
+	elif (
+		hasattr(cls, attr)
+		and callable(getattr(cls, attr))
+		and attr not in cls_typehints
+	):
 		return f"expected `{attr}` to be a data attribute, found callable"
-	elif type_hints and attr in cls_typehints and not compatible(protombr_type, cls_typehints[attr]):
+	elif (
+		type_hints
+		and attr in cls_typehints
+		and not compatible(protombr_type, cls_typehints[attr])
+	):
 		return f"expected annotated attribute `{attr}` to be of type {_tname(protombr_type)}, found {_tname(cls_typehints[attr])}"
 
 	return None
