@@ -1,16 +1,15 @@
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Load, Mapper
+from sqlalchemy.orm import Mapper
+from sqlalchemy.orm.strategy_options import _AbstractLoad
 from sqlalchemy.sql.elements import ColumnElement, literal_column
 
+from .dbm import BasicDBM
 from .validate import validate_kwargs
-
-if TYPE_CHECKING:
-	from .dbm import BasicDBM
 
 
 class NotFoundError(KeyError):
@@ -41,9 +40,7 @@ class BaseRepository[M: BasicDBM, PK]:
 	def _select_where(self, *conditions: Any) -> Select[tuple[M]]:
 		return self._select.where(*conditions)
 
-	def _build_primary_key_clause(
-		self, obj_id: PK
-	) -> list[ColumnElement[bool]]:
+	def _build_primary_key_clause(self, obj_id: PK) -> list[ColumnElement[bool]]:
 		return [
 			self.model.__mapper__.c[k.key or "-"] == v
 			for k, v in zip(
@@ -56,7 +53,7 @@ class BaseRepository[M: BasicDBM, PK]:
 	async def one(
 		self,
 		obj_id: PK,
-		options: Sequence[Load] | None = None,
+		options: Sequence[_AbstractLoad] | None = None,
 	) -> M | None:
 		stmt = self._select_where(*self._build_primary_key_clause(obj_id))
 		if options:
@@ -107,11 +104,7 @@ class BaseRepository[M: BasicDBM, PK]:
 	async def create_many(self, items: Sequence[_DOP]) -> Sequence[M]:
 		_mp_reprs = []
 		for kwargs in items:
-			_mp = (
-				kwargs
-				if isinstance(kwargs, Mapping)
-				else kwargs.model_dump(mode="python")
-			)
+			_mp = kwargs if isinstance(kwargs, Mapping) else kwargs.model_dump(mode="python")
 			validate_kwargs(model=self.model, kwargs=_mp, mode="required")
 			_mp_reprs.append(_mp)
 
@@ -124,9 +117,7 @@ class BaseRepository[M: BasicDBM, PK]:
 
 		return instances
 
-	async def delete_many(
-		self, obj_ids: Sequence[PK], strict: bool = True
-	) -> None:
+	async def delete_many(self, obj_ids: Sequence[PK], strict: bool = True) -> None:
 		"""
 		Delete many instances by their primary keys
 
@@ -155,24 +146,22 @@ class BaseRepository[M: BasicDBM, PK]:
 	async def many(
 		self,
 		where: Sequence[ColumnElement[bool]] | None = None,
-		options: Sequence[Load] | None = None,
+		options: Sequence[_AbstractLoad] | None = None,
 		page: int = 1,
 		page_size: int | None = None,
 		unique: bool = False,
 	) -> Sequence[M]:
-		"""
-		*Get all instances of `M` by predicate, preload relationships, paginate and filter by uniqueness*
+		"""Select many instances of `M`
 
-		#### Parameters
+		Args:
+			where (Sequence[ColumnElement[bool]] | None, optional): Additional clauses to .where. Defaults to None.
+			options (Sequence[Load] | None, optional): Relationships to load. Defaults to None.
+			page (int, optional). Defaults to 1.
+			page_size (int | None, optional). Defaults to None.
+			unique (bool, optional): If .unique() should be called on result. Defaults to False.
 
-		- **where**: `Sequence[ColumnElement[bool]]` - sequence of predicates to use with query
-		- **options**: `Sequence[selectinload | joinedload...]` - sequence of realtionship loads to apply to query
-		- **page**: `int` - query page (> 0)
-		- **page_size**: `int` - query page size (> 0)
-		- **unique**: `bool` - whether to return unique results
-
-		**Return type**: `Sequence[M]`
-
+		Returns:
+			Sequence[M]: _description_
 		"""
 		stmt = select(self.model)
 

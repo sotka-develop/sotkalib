@@ -37,18 +37,12 @@ def _raise_on_uninitialized[**p, r](
 	func: Callable[Concatenate["Database", p], r | coro[r]],
 ) -> Callable[Concatenate["Database", p], r | coro[r]]:
 	@functools.wraps(func)
-	def _wrap(
-		self: "Database", *args: p.args, **kwargs: p.kwargs
-	) -> r | coro[r]:
+	def _wrap(self: "Database", *args: p.args, **kwargs: p.kwargs) -> r | coro[r]:
 		if inspect.iscoroutinefunction(func):
 			if not self._async_enabled:
-				raise RuntimeError(
-					"async engine is not initialized for this instance"
-				)
+				raise RuntimeError("async engine is not initialized for this instance")
 		elif not self._sync_enabled:
-			raise RuntimeError(
-				"sync engine is not initialized for this instance"
-			)
+			raise RuntimeError("sync engine is not initialized for this instance")
 
 		return func(self, *args, **kwargs)
 
@@ -74,9 +68,7 @@ class DatabaseSettings:
 	def async_uri(self) -> str:
 		if self.async_driver is None:
 			raise ValueError("tried to get async uri when driver is not passed")
-		return self.uri.replace(
-			"postgresql://", "postgresql+" + self.async_driver + "://"
-		)
+		return self.uri.replace("postgresql://", "postgresql+" + self.async_driver + "://")
 
 
 class Database:
@@ -182,9 +174,7 @@ class Database:
 
 	@property
 	def asession(self) -> async_contextmgr[AsyncSession]:
-		return (
-			self.asession_safe if self._implicit_safe else self.asession_unsafe
-		)
+		return self.asession_safe if self._implicit_safe else self.asession_unsafe
 
 	@property
 	def async_session(self) -> async_contextmgr[AsyncSession]:

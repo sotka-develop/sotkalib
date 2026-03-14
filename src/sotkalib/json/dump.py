@@ -10,9 +10,7 @@ from sotkalib.func import suppress
 from sotkalib.log import get_logger
 
 
-def safe_serialize_value(
-	obj: Any, _depth: int = 0, _depth_limit: int = 10
-) -> Any:
+def safe_serialize_value(obj: Any, _depth: int = 0, _depth_limit: int = 10) -> Any:
 	if _depth > _depth_limit:
 		return str(obj)
 
@@ -31,14 +29,9 @@ def safe_serialize_value(
 		return obj.decode("utf-8", errors="replace")
 
 	if isinstance(obj, dict):
-		return {
-			k: safe_serialize_value(v, _depth + 1, _depth_limit)
-			for k, v in obj.items()
-		}
+		return {k: safe_serialize_value(v, _depth + 1, _depth_limit) for k, v in obj.items()}
 	if isinstance(obj, (list, tuple, set, frozenset)):
-		return [
-			safe_serialize_value(item, _depth + 1, _depth_limit) for item in obj
-		]
+		return [safe_serialize_value(item, _depth + 1, _depth_limit) for item in obj]
 
 	if hasattr(obj, "model_dump"):
 		with suppress("exact", (TypeError, ValueError)):

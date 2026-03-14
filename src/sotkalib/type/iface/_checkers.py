@@ -52,33 +52,23 @@ def _check_signatures(  # noqa: PLR0912
 					continue
 				if tparam.default is not inspect.Parameter.empty:
 					continue  # has default, so it's okay
-				violations.append(
-					f"unexpected required parameter `{pattr}` on method `{name}`"
-				)
+				violations.append(f"unexpected required parameter `{pattr}` on method `{name}`")
 
 	violations.append(_check_meth_rtype(name, typ_rt, proto_rt))
 
 	return [v for v in violations if v is not None]
 
 
-def _missing_pattr(
-	_typparam: Mapping[str, Parameter], name: str, pparam: Parameter
-) -> str | None:
+def _missing_pattr(_typparam: Mapping[str, Parameter], name: str, pparam: Parameter) -> str | None:
 	# *args/**kwargs in cls can absorb missing named params
-	contains_posvar = any(
-		p.kind == inspect.Parameter.VAR_POSITIONAL for p in _typparam.values()
-	)
-	contains_kwargs = any(
-		p.kind == inspect.Parameter.VAR_KEYWORD for p in _typparam.values()
-	)
+	contains_posvar = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in _typparam.values())
+	contains_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in _typparam.values())
 	if pparam.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
 		if not (contains_posvar or contains_kwargs):
 			return f"expected parameter `{pparam.name}` on method `{name}`"
 	elif pparam.kind == inspect.Parameter.KEYWORD_ONLY:
 		if not contains_kwargs:
-			return (
-				f"expected keyword parameter `{pparam.name}` on method `{name}`"
-			)
+			return f"expected keyword parameter `{pparam.name}` on method `{name}`"
 		# otherwise absorbed (*, attr: str = None, **kw) vs proto (*, **kw)
 	else:
 		return f"expected parameter `{pparam.name}` on method `{name}`"
@@ -86,9 +76,7 @@ def _missing_pattr(
 	return None
 
 
-def _check_meth_rtype(
-	name: str, _trtype: typing.Any, _prtype: typing.Any
-) -> str | None:
+def _check_meth_rtype(name: str, _trtype: typing.Any, _prtype: typing.Any) -> str | None:
 	if (
 		is_set(_prtype)
 		and _prtype is not inspect.Parameter.empty
@@ -96,13 +84,13 @@ def _check_meth_rtype(
 		and _trtype is not inspect.Parameter.empty
 		and not compatible(_prtype, _trtype)
 	):
-		return f"expected {_tname(_prtype)} as a return type of method `{name}`, got {_tname(_trtype)}"
+		return (
+			f"expected {_tname(_prtype)} as a return type of method `{name}`, got {_tname(_trtype)}"
+		)
 	return None
 
 
-def _check_param_kind(
-	name: str, tparam: Parameter, pparam: Parameter
-) -> str | None:
+def _check_param_kind(name: str, tparam: Parameter, pparam: Parameter) -> str | None:
 	if not (
 		(pparam.kind == tparam.kind)
 		or (
@@ -117,9 +105,7 @@ def _check_param_kind(
 	return None
 
 
-def _check_param_annot(
-	name: str, tparam: Parameter, pparam: Parameter
-) -> str | None:
+def _check_param_annot(name: str, tparam: Parameter, pparam: Parameter) -> str | None:
 	if (
 		pparam.annotation is not inspect.Parameter.empty
 		and tparam.annotation is not inspect.Parameter.empty
@@ -152,7 +138,9 @@ def _check_missing(
 				return f"expected property `{name}` to be of type {_tname(proto_ret)}, got {_tname(cls_hints[name])}"
 		return None
 	if name in proto_hints and name not in cls_hints:
-		return f"expected annotated attribute `{name}` (type={_tname(proto_hints[name])}), found none"
+		return (
+			f"expected annotated attribute `{name}` (type={_tname(proto_hints[name])}), found none"
+		)
 	if name in proto_hints and name in cls_hints:
 		if not compatible(proto_hints[name], cls_hints[name]):
 			return f"expected annotated attribute `{name}` to be compatible to type {_tname(proto_hints[name])}, got {_tname(cls_hints[name])}"
@@ -181,11 +169,7 @@ def _check_property(
 	proto_type = proto_typehints.get(name)
 	if proto_type is None and protombr:
 		proto_type = _get_type_hints(protombr).get("return")
-	if (
-		proto_type
-		and name in cls_typehints
-		and not compatible(proto_type, cls_typehints[name])
-	):
+	if proto_type and name in cls_typehints and not compatible(proto_type, cls_typehints[name]):
 		return [
 			f"expected property `{name}` to be of type {_tname(proto_type)}, got {_tname(cls_typehints[name])}"
 		]
@@ -218,10 +202,7 @@ def _check_method_kind(
 	clsmbr_kind: MethodKind,
 ) -> str | None:
 	"""staticmethod/classmethod kind mismatch."""
-	if (
-		protombr_kind in ("static", "classmethod")
-		and protombr_kind != clsmbr_kind
-	):
+	if protombr_kind in ("static", "classmethod") and protombr_kind != clsmbr_kind:
 		return f"expected `{name}` to be {protombr_kind}, found {clsmbr_kind}"
 	return None
 
@@ -241,9 +222,7 @@ def _check_callable(
 	signatures: bool,
 ) -> list[str]:
 	if not callable(clsmbr):
-		return [
-			f"expected `{name}` to be callable, found {type(clsmbr).__name__}"
-		]
+		return [f"expected `{name}` to be callable, found {type(clsmbr).__name__}"]
 	elif signatures:
 		p = protombr_unwrapped if protombr_kind == "static" else protombr
 		t = clsmbr_unwrapped if clsmbr_kind == "static" else clsmbr
@@ -261,16 +240,10 @@ def _check_annot_attrs(
 ):
 	if not hasattr(cls, attr) and attr not in cls_typehints:
 		return f"expected annotated attribute `{attr}` (type={_tname(protombr_type)})"
-	elif (
-		hasattr(cls, attr)
-		and callable(getattr(cls, attr))
-		and attr not in cls_typehints
-	):
+	elif hasattr(cls, attr) and callable(getattr(cls, attr)) and attr not in cls_typehints:
 		return f"expected `{attr}` to be a data attribute, found callable"
 	elif (
-		type_hints
-		and attr in cls_typehints
-		and not compatible(protombr_type, cls_typehints[attr])
+		type_hints and attr in cls_typehints and not compatible(protombr_type, cls_typehints[attr])
 	):
 		return f"expected annotated attribute `{attr}` to be of type {_tname(protombr_type)}, found {_tname(cls_typehints[attr])}"
 

@@ -123,16 +123,12 @@ def implements[T](  # noqa
 
 		# --- missing ---
 		if is_unset(clsmbr):
-			if viol := _check_missing(
-				name, proto, proto_typehints, cls_typehints
-			):
+			if viol := _check_missing(name, proto, proto_typehints, cls_typehints):
 				viols.append(viol)
 			continue
 
 		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
-		protombr_unwrapped, protombr_kind = _unwrap_method(
-			_get_raw(proto, name)
-		)
+		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
 		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
@@ -172,9 +168,7 @@ def implements[T](  # noqa
 
 		# --- data attr ---
 		if callable(clsmbr):
-			viols.append(
-				f"expected `{name}` to be a data attribute, found callable"
-			)
+			viols.append(f"expected `{name}` to be a data attribute, found callable")
 			continue
 
 		if type_hints and _attrs_incompat(name, proto_typehints, cls_typehints):
@@ -188,9 +182,7 @@ def implements[T](  # noqa
 			# already checked above OR protected
 			continue
 
-		if viol := _check_annot_attrs(
-			attr, cls, cls_typehints, protombr_type, type_hints
-		):
+		if viol := _check_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
 			viols.append(viol)
 
 	if any(viols):
@@ -242,9 +234,7 @@ def _implements_early[T: object](
 			continue
 
 		raw_clsmbr = getattr(instance, name, Unset) or _get_raw(cls, name)
-		protombr_unwrapped, protombr_kind = _unwrap_method(
-			_get_raw(proto, name)
-		)
+		protombr_unwrapped, protombr_kind = _unwrap_method(_get_raw(proto, name))
 		clsmbr_unwrapped, clsmbr_kind = _unwrap_method(raw_clsmbr or clsmbr)
 
 		# --- property ---
@@ -294,9 +284,7 @@ def _implements_early[T: object](
 			# already checked above OR protected
 			continue
 
-		if _check_annot_attrs(
-			attr, cls, cls_typehints, protombr_type, type_hints
-		):
+		if _check_annot_attrs(attr, cls, cls_typehints, protombr_type, type_hints):
 			return False
 
 	return True

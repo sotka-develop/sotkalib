@@ -42,9 +42,7 @@ class UserPartial(BaseModel):
 @pytest.fixture()
 def db():
 	with Database(
-		DatabaseSettings(
-			uri="sqlite:///:memory:", async_driver=None, decl_base=BasicDBM
-		)
+		DatabaseSettings(uri="sqlite:///:memory:", async_driver=None, decl_base=BasicDBM)
 	) as db:
 		db.create()
 		yield db
@@ -115,9 +113,7 @@ class TestDict:
 	def test_explicitly_include_with_pydantic_intersection(self, user: User):
 		# UserOut has {id, name, email}; explicitly_include has {name, bio}
 		# intersection should be {name}
-		result = user.dict(
-			pydantic_model=UserOut, explicitly_include=["name", "bio"]
-		)
+		result = user.dict(pydantic_model=UserOut, explicitly_include=["name", "bio"])
 		assert "name" in result
 		assert "bio" not in result
 		assert "id" not in result
@@ -147,12 +143,7 @@ class TestIsLoaded:
 			session.commit()
 			session.expunge(u)
 
-			loaded = (
-				session.query(User)
-				.options(defer(User.bio))
-				.filter_by(id=10)
-				.one()
-			)
+			loaded = session.query(User).options(defer(User.bio)).filter_by(id=10).one()
 			assert loaded.is_loaded(attr="name") is True
 			assert loaded.is_loaded(attr="bio") is False
 
@@ -177,10 +168,7 @@ class TestMerge:
 	def test_merge_skips_unknown_attrs_non_strict(self, user: User):
 		# should not raise, just ignore
 		user.merge(nonexistent="value")
-		assert (
-			not hasattr(user, "nonexistent")
-			or user.__dict__.get("nonexistent") is None
-		)
+		assert not hasattr(user, "nonexistent") or user.__dict__.get("nonexistent") is None
 
 	def test_merge_strict_raises_on_unknown(self, user: User):
 		with pytest.raises(AttributeError):

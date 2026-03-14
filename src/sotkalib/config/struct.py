@@ -100,9 +100,7 @@ class AppSettings:
 
 		load_dotenv(dotenv_path=dotenv_path)
 
-		self._log = (
-			get_logger("utilities.appsettings") if logger is None else logger
-		)
+		self._log = get_logger("utilities.appsettings") if logger is None else logger
 		self._deferred = []
 		self._strict = strict
 
@@ -110,9 +108,7 @@ class AppSettings:
 		cls_dict = self.__class__.__dict__
 
 		settings_fields: dict[str, SettingsField] = {
-			attr: val
-			for attr, val in cls_dict.items()
-			if isinstance(val, SettingsField)
+			attr: val for attr, val in cls_dict.items() if isinstance(val, SettingsField)
 		}
 
 		for attr, settings_field in settings_fields.items():
@@ -130,16 +126,12 @@ class AppSettings:
 
 			typed_value = evaluate_var(annotated, string_value)
 
-			setattr(
-				self, attr, self._validate(typed_value, strict=self._strict)
-			)
+			setattr(self, attr, self._validate(typed_value, strict=self._strict))
 			self._log.debug(f"evaluated {attr} from environment")
 
 		self.__post_init__()
 
-	def _validate_empty_string_value(
-		self, attr: str, settings_field: SettingsField
-	) -> None:
+	def _validate_empty_string_value(self, attr: str, settings_field: SettingsField) -> None:
 		if settings_field.default is not None:
 			setattr(
 				self,
@@ -152,25 +144,19 @@ class AppSettings:
 		if settings_field.factory is not None:
 			if isinstance(settings_field.factory, str):
 				self._deferred.append((attr, settings_field.factory))
-				self._log.debug(
-					f"defer {attr} init as factory is a str; => property"
-				)
+				self._log.debug(f"defer {attr} init as factory is a str; => property")
 				return
 
 			if callable(settings_field.factory):
 				setattr(
 					self,
 					attr,
-					self._validate(
-						settings_field.factory(), strict=self._strict
-					),
+					self._validate(settings_field.factory(), strict=self._strict),
 				)
 				self._log.debug(f"evaluated {attr} from factory")
 				return
 
-			raise TypeError(
-				f"unknown type for a factory: {type(settings_field.factory)}"
-			)
+			raise TypeError(f"unknown type for a factory: {type(settings_field.factory)}")
 
 		if settings_field.nullable:
 			setattr(self, attr, None)
@@ -203,9 +189,7 @@ class AppSettings:
 			if strict:
 				raise TypeError(f"{typeval} is not an allowed immutable type")
 			else:
-				warn(
-					f"{typeval} is mutable, setting value to None", stacklevel=2
-				)
+				warn(f"{typeval} is mutable, setting value to None", stacklevel=2)
 				return None
 
 		return val

@@ -7,9 +7,7 @@ from ...serializer.impl.pickle import B64Pickle
 from .abcs import keyfunc
 
 
-def base_keyfunc(
-	version: int, func_name: str, *args: tuple, **kwargs: dict[str, Any]
-) -> str:
+def base_keyfunc(version: int, func_name: str, *args: tuple, **kwargs: dict[str, Any]) -> str:
 	return f"{version}_{datetime.now().isoformat()}_{func_name}_{B64Pickle.marshal((args, kwargs))}"
 
 

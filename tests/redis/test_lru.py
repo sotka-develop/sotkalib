@@ -15,9 +15,7 @@ async def test_lru_caches_function_result(redis_url: str):
 
 	call_count = 0
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"test:{version}:{func_name}:{args}:{sorted(kwargs.items())}"
 
 	lru = RedisLRU(pool).keyfunc(deterministic_keyfunc)
@@ -47,9 +45,7 @@ async def test_lru_different_args_different_cache(redis_url: str):
 
 	call_count = 0
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"test:{version}:{func_name}:{args}:{sorted(kwargs.items())}"
 
 	lru = RedisLRU(pool).keyfunc(deterministic_keyfunc)
@@ -77,9 +73,7 @@ async def test_lru_with_ttl(redis_url: str, redis_client: Redis):
 	settings = RedisPoolSettings(uri=redis_url, db_num=0)
 	pool = RedisPool(settings)
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"ttl_test:{version}:{func_name}:{args}"
 
 	lru = RedisLRU(pool).keyfunc(deterministic_keyfunc).ttl(60)
@@ -106,9 +100,7 @@ async def test_lru_with_version(redis_url: str):
 
 	call_count = 0
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"version_test:{version}:{func_name}:{args}"
 
 	lru_v1 = RedisLRU(pool).keyfunc(deterministic_keyfunc).version(1)
@@ -143,9 +135,7 @@ async def test_lru_serializer_round_trip(redis_url: str):
 	settings = RedisPoolSettings(uri=redis_url, db_num=0)
 	pool = RedisPool(settings)
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"serialize_test:{version}:{func_name}:{args}"
 
 	lru = RedisLRU(pool).keyfunc(deterministic_keyfunc)
@@ -172,12 +162,8 @@ async def test_lru_with_kwargs(redis_url: str):
 
 	call_count = 0
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
-		return (
-			f"kwargs_test:{version}:{func_name}:{args}:{sorted(kwargs.items())}"
-		)
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
+		return f"kwargs_test:{version}:{func_name}:{args}:{sorted(kwargs.items())}"
 
 	lru = RedisLRU(pool).keyfunc(deterministic_keyfunc)
 
@@ -274,9 +260,7 @@ async def test_lru_with_custom_serializer(redis_url: str):
 
 			return json.loads(raw_data.decode())
 
-	def deterministic_keyfunc(
-		version: int, func_name: str, *args, **kwargs
-	) -> str:
+	def deterministic_keyfunc(version: int, func_name: str, *args, **kwargs) -> str:
 		return f"serializer_test:{version}:{func_name}:{args}"
 
 	@RedisLRU(pool).serializer(JsonSerializer).keyfunc(deterministic_keyfunc)

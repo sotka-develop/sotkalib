@@ -20,16 +20,12 @@ class PydanticJSON(sa.types.TypeDecorator["BaseModel"]):
 	) -> None:
 		super().__init__()
 		if not issubclass(pydantic_type, BaseModel):
-			raise TypeError(
-				f"{pydantic_type.__name__} is not a subclass of `pydantic.BaseModel`"
-			)
+			raise TypeError(f"{pydantic_type.__name__} is not a subclass of `pydantic.BaseModel`")
 		self.pydantic_type = pydantic_type
 		self.postgres_explicit_json = postgres_explicit_json
 
 	@override
-	def load_dialect_impl(
-		self, dialect: "Dialect"
-	) -> "TypeEngine[JSONB | sa.JSON]":
+	def load_dialect_impl(self, dialect: "Dialect") -> "TypeEngine[JSONB | sa.JSON]":
 		if dialect.name == "postgresql" and not self.postgres_explicit_json:
 			return dialect.type_descriptor(JSONB())
 		else:
@@ -95,9 +91,7 @@ def flag_pydantic_changes[T: DeclarativeBase](_, __, target: T) -> None:
 		if not isinstance(prop, ColumnProperty):
 			continue
 
-		is_pyd_type = any(
-			isinstance(col.type, PydanticJSON) for col in prop.columns
-		)
+		is_pyd_type = any(isinstance(col.type, PydanticJSON) for col in prop.columns)
 
 		if is_pyd_type:
 			hist = attr.history

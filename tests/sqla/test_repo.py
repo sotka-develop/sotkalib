@@ -24,9 +24,7 @@ Base = BasicDBM
 @pytest_asyncio.fixture(scope="session")
 async def _db(pg_url: str) -> AsyncGenerator[Database]:
 	async with Database(
-		settings=DatabaseSettings(
-			uri=pg_url, async_driver="psycopg", decl_base=Base
-		)
+		settings=DatabaseSettings(uri=pg_url, async_driver="psycopg", decl_base=Base)
 	) as db:
 		await db.acreate()
 		yield db
@@ -39,9 +37,7 @@ class Author(Base):
 	id = Column(Integer, primary_key=True)
 	name = Column(String(100), nullable=False)
 
-	books = relationship(
-		"Book", secondary=author_book, back_populates="authors", lazy="noload"
-	)
+	books = relationship("Book", secondary=author_book, back_populates="authors", lazy="noload")
 
 
 class Book(Base):
@@ -50,9 +46,7 @@ class Book(Base):
 	id = Column(Integer, primary_key=True)
 	title = Column(String(200), nullable=False)
 
-	authors = relationship(
-		"Author", secondary=author_book, back_populates="books", lazy="noload"
-	)
+	authors = relationship("Author", secondary=author_book, back_populates="books", lazy="noload")
 
 
 class AuthorRepo(BaseRepository[Author, int]):
@@ -69,9 +63,7 @@ class TestCreate:
 		assert author.id is not None
 		assert author.name == "Tolkien"
 
-	async def test_create_rejects_missing_required(
-		self, author_repo: AuthorRepo
-	):
+	async def test_create_rejects_missing_required(self, author_repo: AuthorRepo):
 		with pytest.raises(KeyError):
 			await author_repo.create()
 
@@ -103,16 +95,12 @@ class TestUpdate:
 		assert updated.name == "Pratchett"
 		assert updated.id == author.id
 
-	async def test_update_validates_nonexistent_attrs(
-		self, author_repo: AuthorRepo
-	):
+	async def test_update_validates_nonexistent_attrs(self, author_repo: AuthorRepo):
 		author = await author_repo.create(name="Pratchet")
 		with pytest.raises(AttributeError):
 			author.merge(strict=True, hzchoto=True)
 
-	async def test_update_validates_overriding_pk(
-		self, author_repo: AuthorRepo
-	):
+	async def test_update_validates_overriding_pk(self, author_repo: AuthorRepo):
 		author = await author_repo.create(name="Pratchet")
 		with pytest.raises(AttributeError):
 			author.merge(strict=True, id=999)
@@ -185,9 +173,7 @@ class TestDeleteMany:
 		for aid in ids:
 			assert await author_repo.one(aid) is None
 
-	async def test_delete_many_raises_for_missing(
-		self, author_repo: AuthorRepo
-	):
+	async def test_delete_many_raises_for_missing(self, author_repo: AuthorRepo):
 		author = await author_repo.create(name="Del-C")
 		with pytest.raises(NotFoundError):
 			await author_repo.delete_many([author.id, 999_999])
@@ -203,16 +189,12 @@ class TestEagerLoadOptions:
 		author.books.append(book)
 		await session.flush()
 
-		loaded = await author_repo.one(
-			author.id, options=[selectinload(Author.books)]
-		)
+		loaded = await author_repo.one(author.id, options=[selectinload(Author.books)])
 		assert loaded is not None
 		assert len(loaded.books) == 1
 		assert loaded.books[0].title == "Name of the Rose"
 
-	async def test_many_with_options(
-		self, author_repo: AuthorRepo, book_repo: BookRepo, session
-	):
+	async def test_many_with_options(self, author_repo: AuthorRepo, book_repo: BookRepo, session):
 		a = await author_repo.create(name="Opts-Many")
 		b = await book_repo.create(title="Opts-Book")
 		a.books.append(b)

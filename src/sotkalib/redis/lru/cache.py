@@ -44,9 +44,7 @@ class RedisLRU:
 		if settings is None:
 			settings = LRUSettings()
 
-		self.__pickle_allowed = (
-			os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes"
-		) or False
+		self.__pickle_allowed = (os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes") or False
 		self._redis_factory = redis_factory
 		self._version = settings.version
 		self._ttl = settings.ttl
@@ -107,9 +105,7 @@ class RedisLRU:
 
 		@wraps(func)
 		async def inner(*args: P.args, **kwargs: P.kwargs) -> R:
-			cache_func_key = self._keyfunc(
-				self._version, func.__name__, *args, **kwargs
-			)  # type: ignore[arg-type]
+			cache_func_key = self._keyfunc(self._version, func.__name__, *args, **kwargs)  # type: ignore[arg-type]
 			async with self._redis_factory as rc:
 				cached_result: bytes | str | None = await rc.get(cache_func_key)
 				if cached_result is not None:

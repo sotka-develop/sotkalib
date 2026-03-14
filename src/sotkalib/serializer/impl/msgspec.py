@@ -52,9 +52,7 @@ class TypedMsgspecJsonSerializer[T](_typed_msgspec_mixin[T]):
 		return msgspec_json.encode(data, enc_hook=self._enc_hook)
 
 	def unmarshal(self, raw_data: bytes) -> T:
-		return msgspec_json.decode(
-			raw_data, type=self.type_, dec_hook=self._dec_hook
-		)
+		return msgspec_json.decode(raw_data, type=self.type_, dec_hook=self._dec_hook)
 
 
 class TypedMsgspecMsgpackSerializer[T](_typed_msgspec_mixin[T]):
@@ -62,6 +60,4 @@ class TypedMsgspecMsgpackSerializer[T](_typed_msgspec_mixin[T]):
 		return msgspec_msgpack.encode(data, enc_hook=self._enc_hook)
 
 	def unmarshal(self, raw_data: bytes) -> T:
-		return msgspec_msgpack.decode(
-			raw_data, type=self.type_, dec_hook=self._dec_hook
-		)
+		return msgspec_msgpack.decode(raw_data, type=self.type_, dec_hook=self._dec_hook)

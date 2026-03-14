@@ -46,8 +46,7 @@ def generate_test_data(depth: int = 5, branching: int = 3) -> Any:
 		}  # noqa: S311
 	elif data_type == "list":
 		return [
-			generate_test_data(depth - 1, branching)
-			for _ in range(random.randint(1, branching))
+			generate_test_data(depth - 1, branching) for _ in range(random.randint(1, branching))
 		]  # noqa: S311
 	elif data_type == "nested_dict":
 		return {
@@ -107,9 +106,7 @@ def test_safe_serialize_stress(iterations: int = 5000, max_depth: int = 10):
 	start_time = time.time()
 
 	for i in range(iterations):
-		data = generate_test_data(
-			random.randint(1, max_depth), random.randint(1, 5)
-		)  # noqa: S311
+		data = generate_test_data(random.randint(1, max_depth), random.randint(1, 5))  # noqa: S311
 
 		try:
 			safe_serialize_value(data)
@@ -137,9 +134,7 @@ def test_safe_serialize_stress(iterations: int = 5000, max_depth: int = 10):
 			f"\nWARNING: Average time per call is high ({avg_time:.6f}s). Consider further optimization."
 		)
 	elif avg_time > 0.0001:
-		get_logger().info(
-			f"\nPerformance is acceptable but could be improved ({avg_time:.6f}s)."
-		)
+		get_logger().info(f"\nPerformance is acceptable but could be improved ({avg_time:.6f}s).")
 	else:
 		get_logger().info(f"\nExcellent performance ({avg_time:.6f}s)!")
 

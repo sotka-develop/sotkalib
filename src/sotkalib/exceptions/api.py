@@ -55,6 +55,4 @@ class APIError(BaseHTTPError):
 			ctx=self.ctx,
 		)
 
-		super().__init__(
-			status_code=self.status.value, detail=self.schema.model_dump_json()
-		)
+		super().__init__(status_code=self.status.value, detail=self.schema.model_dump_json())

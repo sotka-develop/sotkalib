@@ -19,8 +19,7 @@ def _extract_reqd(model: type[DeclarativeBase]) -> Sequence[Column[Any]]:
 	return [
 		c
 		for c in _mp.c
-		if not _autoset(c)
-		and (c in _mp.primary_key or not getattr(c, "nullable", True))
+		if not _autoset(c) and (c in _mp.primary_key or not getattr(c, "nullable", True))
 	]
 
 
@@ -31,29 +30,21 @@ def validate_kwargs[T: DeclarativeBase](
 	mode: Literal["required", "no_pk", "loose"] = "required",
 	**_: Any,
 ) -> None:
-	if getattr(model, "__abstract__", False) and not getattr(
-		model, "__tablename__", ""
-	):
+	if getattr(model, "__abstract__", False) and not getattr(model, "__tablename__", ""):
 		raise TypeError(
 			f"{type(model)} should be a child non-abstract instance of sqlalchemy.DeclarativeBase"
 		)
 
 	keyset = set(kwargs.keys())
 
-	if mode == "required" and not {
-		c.name for c in _extract_reqd(model)
-	}.issubset(keyset):
+	if mode == "required" and not {c.name for c in _extract_reqd(model)}.issubset(keyset):
 		raise KeyError(
 			f"required columns not specified, req={[c.name for c in _extract_reqd(model)]}, kw={kwargs.keys()}"
 		)
 
 	_mp = model.__mapper__
 
-	if (
-		mode == "no_pk"
-		and {c.name for c in _mp.c if c in _mp.primary_key and _autoset(c)}
-		& keyset
-	):
+	if mode == "no_pk" and {c.name for c in _mp.c if c in _mp.primary_key and _autoset(c)} & keyset:
 		raise KeyError("autoset pk specified")
 
 	if keyset & {c.name for c in model.__mapper__.c} != keyset:

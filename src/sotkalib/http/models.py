@@ -31,9 +31,7 @@ class _MergeableSettings(BaseModel):
 		for field_name in other.model_fields_set:
 			value = getattr(other, field_name)
 			base_value = getattr(merged, field_name)
-			if isinstance(base_value, _MergeableSettings) and isinstance(
-				value, _MergeableSettings
-			):
+			if isinstance(base_value, _MergeableSettings) and isinstance(value, _MergeableSettings):
 				value = base_value._merge_from(value)
 			object.__setattr__(merged, field_name, value)
 		return merged
@@ -48,9 +46,7 @@ class StatusSettings(_MergeableSettings):
 	model_config = ConfigDict(arbitrary_types_allowed=True)
 
 	to_raise: set[HTTPStatus] = Field(default={HTTPStatus.FORBIDDEN})
-	to_retry: set[HTTPStatus] = Field(
-		default={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.FORBIDDEN}
-	)
+	to_retry: set[HTTPStatus] = Field(default={HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.FORBIDDEN})
 	exc_to_raise: type[Exception] = Field(default=CriticalStatusError)
 	not_found_as_none: bool = Field(default=True)
 	args_for_exc_func: ArgumentFunc = Field(default=default_stat_arg_func)
@@ -92,9 +88,7 @@ class ClientSettings(_MergeableSettings):
 	useragent_factory: Callable[[], str] | None = Field(default=None)
 
 	status_settings: StatusSettings = Field(default_factory=StatusSettings)
-	exception_settings: ExceptionSettings = Field(
-		default_factory=ExceptionSettings
-	)
+	exception_settings: ExceptionSettings = Field(default_factory=ExceptionSettings)
 
 	session_kwargs: dict[str, Any] = Field(default_factory=dict)
 	use_cookies_from_response: bool = Field(default=False)
@@ -120,9 +114,7 @@ class ClientSettings(_MergeableSettings):
 
 		return NotImplemented
 
-	@deprecated(
-		"ClientSettings.with_() is deprecated, use the | operator instead"
-	)
+	@deprecated("ClientSettings.with_() is deprecated, use the | operator instead")
 	def with_(self, **kws) -> Self:
 		ns = deepcopy(self)
 		for k, v in kws.items():

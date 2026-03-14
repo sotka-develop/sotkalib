@@ -25,9 +25,7 @@ def _valid_keys[Key, Val](d: dict[Key, Val]) -> set[Key]:
 	return {k for k, v in d.items() if is_set(v)}
 
 
-def _filter[Key, Val](
-	d: dict[Key, Val], f: Callable[[Key, Val], bool]
-) -> mod_dict[Key, Val]:
+def _filter[Key, Val](d: dict[Key, Val], f: Callable[[Key, Val], bool]) -> mod_dict[Key, Val]:
 	return mod_dict({k: v for k, v in d.items() if f(k, v)})
 
 

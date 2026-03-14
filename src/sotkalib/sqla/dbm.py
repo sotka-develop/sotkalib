@@ -45,11 +45,7 @@ class BasicDBM(DeclarativeBase):
 		# checking include if it has any attrs left,
 		# that are not columns of DBM (e.g. property, smth else)
 		# diffing explicitly_set because those would be overwritten anyway
-		for k in (
-			set(include)
-			.difference(*result.keys())
-			.difference(*explicitly_set.keys())
-		):
+		for k in set(include).difference(*result.keys()).difference(*explicitly_set.keys()):
 			if hasattr(self, k):
 				result[k] = getattr(self, k)
 

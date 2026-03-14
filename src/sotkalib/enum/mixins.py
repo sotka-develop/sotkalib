@@ -5,9 +5,7 @@ from typing import Any, Literal, Self, overload
 
 class UppercaseMixin(StrEnum):
 	@staticmethod
-	def _generate_next_value_(
-		name: str, start: int, count: int, last_values: Sequence
-	) -> str:  # noqa
+	def _generate_next_value_(name: str, start: int, count: int, last_values: Sequence) -> str:  # noqa
 		return name.upper()
 
 
@@ -15,18 +13,12 @@ class ValidatorMixin(StrEnum):
 	@classmethod
 	def _normalize_value(cls, val: Any) -> str:
 		if isinstance(val, (str, bytes, bytearray)):
-			return (
-				val.decode("utf-8")
-				if isinstance(val, (bytes, bytearray))
-				else val
-			)
+			return val.decode("utf-8") if isinstance(val, (bytes, bytearray)) else val
 		raise TypeError("value must be str-like")
 
 	@overload
 	@classmethod
-	def validate(
-		cls, *, val: Any, req: Literal[False] = False
-	) -> Self | None: ...
+	def validate(cls, *, val: Any, req: Literal[False] = False) -> Self | None: ...
 
 	@overload
 	@classmethod
@@ -78,16 +70,8 @@ class ValuesMixin(StrEnum):
 
 	@classmethod
 	def names_list(cls) -> list[str]:
-		return [
-			k.name
-			for k in cls
-			if not k.startswith("_") and isinstance(k.value, str)
-		]
+		return [k.name for k in cls if not k.startswith("_") and isinstance(k.value, str)]
 
 	@classmethod
 	def names_set(cls) -> set[str]:
-		return {
-			k.name
-			for k in cls
-			if not k.startswith("_") and isinstance(k.value, str)
-		}
+		return {k.name for k in cls if not k.startswith("_") and isinstance(k.value, str)}

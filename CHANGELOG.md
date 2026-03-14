@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.2.4.post1
+- Fix typing error with relationship loads in repository
+
 ## v0.2.4
 
 - Add support for `ABC` inference

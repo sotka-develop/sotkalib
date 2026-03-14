@@ -34,9 +34,7 @@ class TestStatusSettingsMerge:
 
 	def test_merge_to_raise_set(self):
 		base = StatusSettings(to_raise={HTTPStatus.FORBIDDEN})
-		patch = StatusSettings(
-			to_raise={HTTPStatus.UNAUTHORIZED, HTTPStatus.NOT_FOUND}
-		)
+		patch = StatusSettings(to_raise={HTTPStatus.UNAUTHORIZED, HTTPStatus.NOT_FOUND})
 		result = base | patch
 		assert result.to_raise == {
 			HTTPStatus.UNAUTHORIZED,
@@ -98,9 +96,7 @@ class TestExceptionSettingsMerge:
 
 	def test_merge_to_retry_tuple(self):
 		base = ExceptionSettings(to_retry=(TimeoutError,))
-		patch = ExceptionSettings(
-			to_retry=(client_exceptions.ServerDisconnectedError,)
-		)
+		patch = ExceptionSettings(to_retry=(client_exceptions.ServerDisconnectedError,))
 		result = base | patch
 		assert result.to_retry == (client_exceptions.ServerDisconnectedError,)
 
@@ -151,13 +147,9 @@ class TestClientSettingsMergeEdgeCases:
 
 	def test_merge_deeply_nested_does_not_mutate(self):
 		base = ClientSettings(
-			status_settings=StatusSettings(
-				not_found_as_none=True, unspecified="retry"
-			)
+			status_settings=StatusSettings(not_found_as_none=True, unspecified="retry")
 		)
-		patch = ClientSettings(
-			status_settings=StatusSettings(unspecified="raise")
-		)
+		patch = ClientSettings(status_settings=StatusSettings(unspecified="raise"))
 		_ = base | patch
 		assert base.status_settings.unspecified == "retry"
 		assert base.status_settings.not_found_as_none is True
@@ -180,9 +172,7 @@ class TestClientSettingsMergeEdgeCases:
 
 	def test_merge_session_kwargs(self):
 		base = ClientSettings(session_kwargs={"timeout": 10})
-		patch = ClientSettings(
-			session_kwargs={"timeout": 30, "headers": {"X-Custom": "val"}}
-		)
+		patch = ClientSettings(session_kwargs={"timeout": 30, "headers": {"X-Custom": "val"}})
 		result = base | patch
 		assert result.session_kwargs == {
 			"timeout": 30,
@@ -272,9 +262,7 @@ class TestDeprecatedWithMethod:
 		assert result.maximum_retries == 5
 
 	def test_with_nested_override(self):
-		base = ClientSettings(
-			status_settings=StatusSettings(not_found_as_none=True)
-		)
+		base = ClientSettings(status_settings=StatusSettings(not_found_as_none=True))
 		with pytest.warns(DeprecationWarning):
 			result = base.with_(**{"status_settings.unspecified": "raise"})
 		assert result.status_settings.not_found_as_none is True

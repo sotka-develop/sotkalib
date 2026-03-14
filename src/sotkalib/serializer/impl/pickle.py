@@ -4,9 +4,7 @@ from pickle import HIGHEST_PROTOCOL, dumps, loads
 from typing import Any
 from warnings import warn
 
-_pickle_allowed = (
-	os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes"
-) or False
+_pickle_allowed = (os.getenv("SOTKALIB_ALLOW_PICKLE", "").lower() == "yes") or False
 
 
 class SecurityWarning(Warning): ...

@@ -11,9 +11,7 @@ class TestErrorSchema:
 		assert schema.ctx is None
 
 	def test_with_values(self):
-		schema = ErrorSchema(
-			code="ERR_01", desc="invalid input", ctx={"field": "name"}
-		)
+		schema = ErrorSchema(code="ERR_01", desc="invalid input", ctx={"field": "name"})
 		assert schema.code == "ERR_01"
 		assert schema.ctx == {"field": "name"}
 
@@ -49,9 +47,7 @@ class TestAPIError:
 		assert err.status == http.HTTPStatus.NOT_FOUND
 
 	def test_with_http_status(self):
-		err = APIError(
-			status=http.HTTPStatus.FORBIDDEN, code="FORBIDDEN", desc="no access"
-		)
+		err = APIError(status=http.HTTPStatus.FORBIDDEN, code="FORBIDDEN", desc="no access")
 		assert err.code == "FORBIDDEN"
 		assert err.desc == "no access"
 
