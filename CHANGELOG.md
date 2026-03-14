@@ -1,6 +1,11 @@
 # Changelog
 
+## v0.2.4.post2
+
+- More fixes to typing, accidentally broken something in post1
+
 ## v0.2.4.post1
+
 - Fix typing error with relationship loads in repository
 
 ## v0.2.4

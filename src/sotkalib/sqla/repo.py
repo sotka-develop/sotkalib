@@ -1,22 +1,25 @@
-from collections.abc import Mapping, Sequence
-from typing import Any
+from __future__ import annotations
 
-from pydantic import BaseModel
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any
+
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapper
-from sqlalchemy.orm.strategy_options import _AbstractLoad
-from sqlalchemy.sql.elements import ColumnElement, literal_column
+from sqlalchemy.sql.elements import literal_column
 
-from .dbm import BasicDBM
 from .validate import validate_kwargs
+
+if TYPE_CHECKING:
+	from pydantic import BaseModel
+	from sqlalchemy.orm import Mapper
+	from sqlalchemy.orm.strategy_options import _AbstractLoad
+	from sqlalchemy.sql.elements import ColumnElement
+
+	from .dbm import BasicDBM
 
 
 class NotFoundError(KeyError):
 	pass
-
-
-_DOP = BaseModel | dict[str, Any]
 
 
 class BaseRepository[M: BasicDBM, PK]:
@@ -101,7 +104,7 @@ class BaseRepository[M: BasicDBM, PK]:
 		await self.session.delete(instance)
 		await self.session.flush()
 
-	async def create_many(self, items: Sequence[_DOP]) -> Sequence[M]:
+	async def create_many(self, items: Sequence[BaseModel | dict[str, Any]]) -> Sequence[M]:
 		_mp_reprs = []
 		for kwargs in items:
 			_mp = kwargs if isinstance(kwargs, Mapping) else kwargs.model_dump(mode="python")
