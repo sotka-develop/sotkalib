@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: -> checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: main
 
@@ -33,7 +33,7 @@ jobs:
       - name: -> setup just
         uses: extractions/setup-just@v3
         with:
-          just-version: '*'
+          just-version: "*"
 
       - name: -> sync
         run: just sync

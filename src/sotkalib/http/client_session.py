@@ -87,7 +87,7 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 			**session_kwargs,
 		)
 
-		self._logger.debug(f"HTTPSession initialized with timeout: {self.config.timeout}")
+		self._logger.debug("HTTPSession initialized", timeout=self.config.timeout)
 		return self
 
 	async def __aexit__(
@@ -193,8 +193,13 @@ class HTTPSession[R = aiohttp.ClientResponse | None]:
 
 		delay = self.config.base * min(MAXIMUM_BACKOFF, self.config.backoff**ctx.attempt)
 		self._logger.debug(
-			f"Retry {ctx.attempt + 1}/{ctx.max_attempts} for {ctx.method} {ctx.url} "
-			f"after {delay:.2f}s (error: {type(e).__name__})"
+			"retrying request",
+			attempt=ctx.attempt + 1,
+			max_attempts=ctx.max_attempts,
+			method=ctx.method,
+			url=ctx.url,
+			delay=delay,
+			error=type(e).__name__,
 		)
 		await asyncio.sleep(delay)
 

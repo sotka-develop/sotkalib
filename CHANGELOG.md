@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.2.5
+- Migrate from loguru to structlog
+
 ## v0.2.4.post2
 
 - More fixes to typing, accidentally broken something in post1

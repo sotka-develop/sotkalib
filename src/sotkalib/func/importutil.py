@@ -7,7 +7,9 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from sotkalib.log import get_logger
+
+logger = get_logger("import_util")
 
 
 @contextmanager
@@ -26,7 +28,7 @@ def add_cwd_in_path() -> Generator[None]:
 	if str(cwd) in sys.path:
 		yield
 	else:
-		logger.debug(f"inserting {cwd} in sys.path")
+		logger.debug("inserting cwd in sys.path", cwd=str(cwd))
 		sys.path.insert(0, str(cwd))
 		try:
 			yield
@@ -34,7 +36,7 @@ def add_cwd_in_path() -> Generator[None]:
 			try:
 				sys.path.remove(str(cwd))
 			except ValueError:
-				logger.warning(f"cannot remove '{cwd}' from sys.path")
+				logger.warning("cannot remove cwd from sys.path", cwd=str(cwd))
 
 
 def import_object(object_spec: str, app_dir: str | None = None) -> Any:
@@ -72,12 +74,11 @@ def import_from_modules(modules: list[str]) -> None:
 	"""
 	for module in modules:
 		try:
-			logger.info(f"importing tasks from module {module}")
+			logger.info("importing tasks from module", module=module)
 			with add_cwd_in_path():
 				import_module(module)
 		except ImportError as err:
-			logger.warning(f"cannot import {module}. Cause:")
-			logger.exception(err)
+			logger.exception("failed to import", module=module, exc=err)
 
 
 def object_fqn(obj: object) -> str:
@@ -109,6 +110,6 @@ def get_type_from_fqn(_result: str | bytes | None) -> Any:
 	try:
 		_imported_type = import_object(_decoded_result)
 	except Exception as exc:
-		logger.warning("{}", exc)
+		logger.warning("failed to import type from fqn", fqn=_decoded_result, exc=exc)
 
 	return _imported_type

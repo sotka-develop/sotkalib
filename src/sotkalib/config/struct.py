@@ -4,23 +4,14 @@ import re
 from dataclasses import dataclass
 from os import PathLike, getenv
 from types import NoneType, UnionType
-from typing import TYPE_CHECKING, Any, get_args
+from typing import Any, get_args
 from warnings import warn
 
 from dotenv import load_dotenv
+from structlog import BoundLogger
 
-from sotkalib.log import get_logger
-
+from ..log import get_logger
 from .field import AllowedTypes, SettingsField
-
-if TYPE_CHECKING:
-	from logging import (
-		Logger as StdLogger,
-	)
-
-	from loguru import Logger as LoguruLogger
-
-	type _loggers = StdLogger | LoguruLogger
 
 
 @dataclass
@@ -60,7 +51,7 @@ class AppSettings:
 	def __init__(
 		self,
 		dotenv_path: str | PathLike[str] | None = None,
-		logger: _loggers | None = None,
+		logger: BoundLogger | None = None,
 		explicit_format: bool = True,
 		strict: bool = False,
 	) -> None:
@@ -127,7 +118,7 @@ class AppSettings:
 			typed_value = evaluate_var(annotated, string_value)
 
 			setattr(self, attr, self._validate(typed_value, strict=self._strict))
-			self._log.debug(f"evaluated {attr} from environment")
+			self._log.debug("evaluated from environment", attr=attr)
 
 		self.__post_init__()
 
@@ -138,13 +129,13 @@ class AppSettings:
 				attr,
 				self._validate(settings_field.default, strict=self._strict),
 			)
-			self._log.debug(f"evaluated {attr} from default")
+			self._log.debug("evaluated from default", attr=attr)
 			return
 
 		if settings_field.factory is not None:
 			if isinstance(settings_field.factory, str):
 				self._deferred.append((attr, settings_field.factory))
-				self._log.debug(f"defer {attr} init as factory is a str; => property")
+				self._log.debug("defer init as factory is a str; => property", attr=attr)
 				return
 
 			if callable(settings_field.factory):
@@ -153,14 +144,14 @@ class AppSettings:
 					attr,
 					self._validate(settings_field.factory(), strict=self._strict),
 				)
-				self._log.debug(f"evaluated {attr} from factory")
+				self._log.debug("evaluated from factory", attr=attr)
 				return
 
 			raise TypeError(f"unknown type for a factory: {type(settings_field.factory)}")
 
 		if settings_field.nullable:
 			setattr(self, attr, None)
-			self._log.debug(f"evaluated {attr} as None (nullable)")
+			self._log.debug("evaluated as None (nullable)", attr=attr)
 			return
 
 		raise ValueError(f"reqd field {attr} was not found in .env")
@@ -173,7 +164,7 @@ class AppSettings:
 				)
 			if not isinstance(getattr(self.__class__, factory), property):
 				raise TypeError(f"method {factory} is not a property")
-			self._log.debug(f"evaluated {attr} from property {factory}")
+			self._log.debug("evaluated from property", attr=attr, factory=factory)
 			setattr(
 				self,
 				attr,
